@@ -1,0 +1,112 @@
+{
+  "identifier" : "A1DOZYSTOREKIT001",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+
+  ],
+  "settings" : {
+    "_applicationInternalID" : "0000000000",
+    "_developerTeamID" : "XXXXXXXXXX",
+    "_failTransactionsEnabled" : false,
+    "_lastStoreKitConfigurationVersionDigest" : "dozy-premium-monthly-v1",
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Load Products"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Purchase"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Verification"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Store Sync"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Subscription Status"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Transaction"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Manage Subscriptions Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Refund Request Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Offer Code Redeem Sheet"
+      }
+    ]
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "A1DOZYSUBGROUP001",
+      "localizations" : [
+        {
+          "description" : "Full access to Dozy sleep debt and nap planning.",
+          "displayName" : "Dozy Premium",
+          "locale" : "en_US"
+        }
+      ],
+      "name" : "Dozy Premium",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "19.00",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "A1DOZYMONTHLY001",
+          "introductoryOffer" : {
+            "internalID" : "A1DOZYTRIAL001",
+            "numberOfPeriods" : 1,
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P3D"
+          },
+          "localizations" : [
+            {
+              "description" : "Unlimited Dozy access after a 3-day free trial.",
+              "displayName" : "Dozy Premium Monthly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "dozy_premium_monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Dozy Premium Monthly",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}
