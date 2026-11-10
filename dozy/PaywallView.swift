@@ -89,6 +89,19 @@ struct PaywallView: View {
                     }
                     .disabled(subscriptions.isPurchasing)
 
+                    #if DEBUG
+                    if subscriptions.product == nil {
+                        Button {
+                            subscriptions.unlockForLocalTesting()
+                        } label: {
+                            Text("DEBUG: Continue without StoreKit")
+                                .font(Theme.body(13, weight: .medium))
+                                .foregroundStyle(.white.opacity(0.55))
+                        }
+                        .padding(.top, 4)
+                    }
+                    #endif
+
                     Text("Cancel anytime in Settings → Apple ID → Subscriptions.")
                         .font(Theme.body(12))
                         .foregroundStyle(.white.opacity(0.4))

@@ -52,12 +52,30 @@ final class SubscriptionManager: ObservableObject {
             let products = try await Product.products(for: [Self.monthlyProductID])
             product = products.first
             if product == nil {
+                // Empty catalog usually means the Run scheme’s StoreKit Configuration
+                // isn’t loading Products.storekit (wrong path / file outside the synced folder).
                 errorMessage = "Subscription isn’t available right now. Try again later."
+                print("[Dozy] StoreKit returned 0 products for \(Self.monthlyProductID). Edit Scheme → Run → Options → StoreKit Configuration must point at dozy/Products.storekit (not red).")
+            } else {
+                errorMessage = nil
+                print("[Dozy] Loaded StoreKit product \(product!.id) @ \(product!.displayPrice)")
             }
         } catch {
             errorMessage = "Couldn’t load subscription options."
+            print("[Dozy] StoreKit product load failed: \(error)")
         }
     }
+
+    #if DEBUG
+    /// Unlocks the app locally when StoreKit Configuration fails to load in Simulator.
+    func unlockForLocalTesting() {
+        isEntitled = true
+        isInTrial = true
+        expirationDate = Calendar.current.date(byAdding: .day, value: 3, to: Date())
+        errorMessage = nil
+        print("[Dozy] DEBUG unlockForLocalTesting() — not a real StoreKit purchase")
+    }
+    #endif
 
     // MARK: - Purchase / restore
 
