@@ -15,6 +15,7 @@ struct ProfileView: View {
     @State private var healthConnected = true   // app reads HealthKit by design
     @State private var ouraConnected = Account.isCloudSourceConnected("oura")
     @State private var garminConnected = Account.isCloudSourceConnected("garmin")
+    @State private var cloudNeedsSignIn = AppSession.needsSignIn
     @State private var connectingProvider: String? = nil
     @State private var connectError: String? = nil
     @State private var isRestoring = false
@@ -82,24 +83,22 @@ struct ProfileView: View {
                         icon: "circle.hexagongrid.fill",
                         iconColor: Color(red: 0.55, green: 0.45, blue: 0.95),
                         title: "Oura",
-                        subtitle: ouraConnected
-                            ? "Connected — cloud sleep"
-                            : "Connect your Oura account",
+                        subtitle: cloudSubtitle("Oura", connected: ouraConnected),
                         connected: ouraConnected,
                         isBusy: connectingProvider == "oura",
-                        action: ouraConnected ? nil : { connectCloudSource("oura") }
+                        actionLabel: ouraConnected ? "Sign in" : "Connect",
+                        action: cloudAction("oura", connected: ouraConnected)
                     )
 
                     sourceRow(
                         icon: "watch.analog",
                         iconColor: Color(red: 0.25, green: 0.55, blue: 0.95),
                         title: "Garmin",
-                        subtitle: garminConnected
-                            ? "Connected — cloud sleep"
-                            : "Connect your Garmin account",
+                        subtitle: cloudSubtitle("Garmin", connected: garminConnected),
                         connected: garminConnected,
                         isBusy: connectingProvider == "garmin",
-                        action: garminConnected ? nil : { connectCloudSource("garmin") }
+                        actionLabel: garminConnected ? "Sign in" : "Connect",
+                        action: cloudAction("garmin", connected: garminConnected)
                     )
                 }
 
@@ -121,6 +120,7 @@ struct ProfileView: View {
             refreshNotificationStatus()
             ouraConnected = Account.isCloudSourceConnected("oura")
             garminConnected = Account.isCloudSourceConnected("garmin")
+            cloudNeedsSignIn = AppSession.needsSignIn
         }
     }
 
@@ -133,6 +133,7 @@ struct ProfileView: View {
         subtitle: String,
         connected: Bool,
         isBusy: Bool,
+        actionLabel: String = "Connect",
         action: (() -> Void)?
     ) -> some View {
         Button {
@@ -154,12 +155,12 @@ struct ProfileView: View {
                 Spacer()
                 if isBusy {
                     ProgressView().tint(accent)
+                } else if action != nil {
+                    Text(actionLabel)
+                        .font(Theme.body(13, weight: .medium))
+                        .foregroundStyle(accent)
                 } else if connected {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(accent)
-                } else if action != nil {
-                    Text("Connect")
-                        .font(Theme.body(13, weight: .medium))
                         .foregroundStyle(accent)
                 } else {
                     Image(systemName: "circle")
@@ -278,6 +279,48 @@ struct ProfileView: View {
 
     // MARK: - Junction cloud connect
 
+    private func cloudSubtitle(_ name: String, connected: Bool) -> String {
+        guard connected else { return "Connect your \(name) account" }
+        return cloudNeedsSignIn ? "Sign in again to keep syncing" : "Connected — cloud sleep"
+    }
+
+    /// Not connected: start the connect flow. Connected but the server wants a new session:
+    /// sign in again. Otherwise the row has nothing to do.
+    private func cloudAction(_ provider: String, connected: Bool) -> (() -> Void)? {
+        if !connected { return { connectCloudSource(provider) } }
+        if cloudNeedsSignIn { return { resumeCloudSync(provider) } }
+        return nil
+    }
+
+    /// Asks for the tracker link, signing in to Dozy again first if the server requires it.
+    private func linkURL(clientUserId: String, provider: String) async throws -> URL {
+        do {
+            return try await JunctionAPI.createLinkURL(clientUserId: clientUserId, provider: provider)
+        } catch where JunctionAPI.isSignInRequired(error) {
+            try await AppSession.renewWithApple()
+            cloudNeedsSignIn = false
+            return try await JunctionAPI.createLinkURL(clientUserId: clientUserId, provider: provider)
+        }
+    }
+
+    private func resumeCloudSync(_ provider: String) {
+        connectingProvider = provider
+        connectError = nil
+
+        Task {
+            do {
+                try await AppSession.renewWithApple()
+                await sleepVM.load()
+            } catch {
+                if !AppSession.isAppleSheetCancelled(error) {
+                    connectError = error.localizedDescription
+                }
+            }
+            connectingProvider = nil
+            cloudNeedsSignIn = AppSession.needsSignIn
+        }
+    }
+
     private func connectCloudSource(_ provider: String) {
         guard let clientUserId = Account.userID, !clientUserId.isEmpty else {
             connectError = "Sign in with Apple again so Dozy can link this tracker."
@@ -289,10 +332,7 @@ struct ProfileView: View {
 
         Task {
             do {
-                let url = try await JunctionAPI.createLinkURL(
-                    clientUserId: clientUserId,
-                    provider: provider
-                )
+                let url = try await linkURL(clientUserId: clientUserId, provider: provider)
                 await MainActor.run {
                     let session = JunctionLinkSession()
                     linkSession = session
@@ -317,7 +357,10 @@ struct ProfileView: View {
             } catch {
                 await MainActor.run {
                     connectingProvider = nil
-                    connectError = error.localizedDescription
+                    cloudNeedsSignIn = AppSession.needsSignIn
+                    if !AppSession.isAppleSheetCancelled(error) {
+                        connectError = error.localizedDescription
+                    }
                 }
             }
         }

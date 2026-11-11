@@ -260,6 +260,22 @@ struct SignUpWithAppleButton: View {
                     Account.save(name: name, email: cred.email)
                     // The stable identifier is always present — store it as the account key.
                     Account.saveUserID(cred.user)
+                    // Swap Apple's identity token for a Dozy session so the tracker routes
+                    // know who is calling. If this fails, Profile asks again when it's needed.
+                    if let data = cred.identityToken,
+                       let identityToken = String(data: data, encoding: .utf8) {
+                        let userID = cred.user
+                        Task {
+                            do {
+                                try await AppSession.exchange(
+                                    identityToken: identityToken,
+                                    expectedUserID: userID
+                                )
+                            } catch {
+                                print("[Dozy] Session sign in failed: \(error.localizedDescription)")
+                            }
+                        }
+                    }
                     errorMessage = nil
                     onFinish()
                 case .failure(let error):

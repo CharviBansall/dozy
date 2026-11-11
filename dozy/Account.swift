@@ -34,6 +34,7 @@ enum Account {
         for provider in cloudProviders {
             d.removeObject(forKey: cloudKey(provider))
         }
+        AppSession.clear()
     }
 
     // MARK: - Junction cloud sources
@@ -147,10 +148,7 @@ enum JunctionAPI {
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse else {
-            throw URLError(.badServerResponse)
-        }
+        let (data, http) = try await send(request)
         let decoded = try JSONDecoder().decode(LinkTokenResponse.self, from: data)
         guard http.statusCode == 200, let raw = decoded.linkWebUrl, let url = URL(string: raw) else {
             throw NSError(
@@ -182,10 +180,7 @@ enum JunctionAPI {
         comps.queryItems = items
 
         guard let url = comps.url else { throw URLError(.badURL) }
-        let (data, response) = try await URLSession.shared.data(from: url)
-        guard let http = response as? HTTPURLResponse else {
-            throw URLError(.badServerResponse)
-        }
+        let (data, http) = try await send(URLRequest(url: url))
         let decoded = try JSONDecoder().decode(SleepResponse.self, from: data)
         guard http.statusCode == 200 else {
             throw NSError(
@@ -195,6 +190,48 @@ enum JunctionAPI {
             )
         }
         return (decoded.sleep ?? []).compactMap { $0.asNightSleep(calendar: calendar) }
+    }
+
+    /// True when the server refused a request because it wants a (new) Dozy session.
+    static func isSignInRequired(_ error: Error) -> Bool {
+        let nsError = error as NSError
+        return nsError.domain == "JunctionAPI" && nsError.code == 401
+    }
+
+    /// Sends a request with the Dozy session attached, and keeps `AppSession.needsSignIn`
+    /// in step with what the server says.
+    private static func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        var authorized = request
+        let sentSession = AppSession.authorize(&authorized)
+        var (data, http) = try await perform(authorized)
+
+        if http.statusCode == 401, sentSession {
+            // The stored session was refused (expired or revoked). Drop it and ask once more
+            // without one: the server still answers when it isn't requiring sessions yet.
+            AppSession.discard()
+            (data, http) = try await perform(request)
+        }
+
+        if http.statusCode == 401 {
+            AppSession.needsSignIn = true
+            throw NSError(
+                domain: "JunctionAPI",
+                code: 401,
+                userInfo: [NSLocalizedDescriptionKey: AppSession.Failure.signInRequired.localizedDescription]
+            )
+        }
+        if (200..<300).contains(http.statusCode) {
+            AppSession.needsSignIn = false
+        }
+        return (data, http)
+    }
+
+    private static func perform(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+        return (data, http)
     }
 
     private static func dayString(_ date: Date, calendar: Calendar) -> String {
