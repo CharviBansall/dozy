@@ -68,7 +68,7 @@ enum JunctionAPI {
     }
 
     struct SleepResponse: Decodable {
-        let sleep: [SleepSummary]
+        let sleep: [SleepSummary]?
         let error: String?
     }
 
@@ -194,7 +194,7 @@ enum JunctionAPI {
                 userInfo: [NSLocalizedDescriptionKey: decoded.error ?? "Sleep fetch failed."]
             )
         }
-        return decoded.sleep.compactMap { $0.asNightSleep(calendar: calendar) }
+        return (decoded.sleep ?? []).compactMap { $0.asNightSleep(calendar: calendar) }
     }
 
     private static func dayString(_ date: Date, calendar: Calendar) -> String {

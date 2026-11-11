@@ -89,17 +89,28 @@ final class SleepViewModel: ObservableObject {
         }
     }
 
-    /// Prefer HealthKit when both sources have the same wake day; keep Junction-only nights.
+    /// Keeps every HealthKit entry (nights and naps) untouched, then fills days that
+    /// have no HealthKit night with the longest Junction night for that day.
+    /// Longest-per-day avoids double counting when two cloud trackers report the same night.
     static func mergeNights(healthKit: [NightSleep], junction: [NightSleep]) -> [NightSleep] {
         let cal = Calendar.current
-        var byDay: [Date: NightSleep] = [:]
-        for night in junction {
-            byDay[cal.startOfDay(for: night.day)] = night
+        let nightThreshold: TimeInterval = 2 * 3600
+
+        let daysWithHealthKitNight = Set(
+            healthKit
+                .filter { $0.totalAsleep >= nightThreshold }
+                .map { cal.startOfDay(for: $0.day) }
+        )
+
+        var cloudByDay: [Date: NightSleep] = [:]
+        for night in junction where night.totalAsleep >= nightThreshold {
+            let day = cal.startOfDay(for: night.day)
+            guard !daysWithHealthKitNight.contains(day) else { continue }
+            if let existing = cloudByDay[day], existing.totalAsleep >= night.totalAsleep { continue }
+            cloudByDay[day] = night
         }
-        for night in healthKit {
-            byDay[cal.startOfDay(for: night.day)] = night
-        }
-        return Array(byDay.values).sorted { $0.day > $1.day }
+
+        return (healthKit + Array(cloudByDay.values)).sorted { $0.day > $1.day }
     }
 
     // MARK: - Formatting helpers for the UI
