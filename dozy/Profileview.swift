@@ -10,6 +10,7 @@ import UserNotifications
 
 struct ProfileView: View {
     @EnvironmentObject private var subscriptions: SubscriptionManager
+    @EnvironmentObject private var sleepVM: SleepViewModel
     @State private var notificationsEnabled = false
     @State private var healthConnected = true   // app reads HealthKit by design
     @State private var ouraConnected = Account.isCloudSourceConnected("oura")
@@ -304,6 +305,7 @@ struct ProfileView: View {
                             Account.setCloudSourceConnected(slug, true)
                             if slug == "oura" { ouraConnected = true }
                             if slug == "garmin" { garminConnected = true }
+                            Task { await sleepVM.load() }
                         case .failure(let error):
                             if (error as NSError).code == ASWebAuthenticationSessionError.canceledLogin.rawValue {
                                 return
@@ -349,58 +351,7 @@ struct ProfileView: View {
     }
 }
 
-// MARK: - Account cloud-source helpers
-
-extension Account {
-    private static func cloudKey(_ provider: String) -> String {
-        "account.cloud.\(provider)"
-    }
-
-    static func isCloudSourceConnected(_ provider: String) -> Bool {
-        UserDefaults.standard.bool(forKey: cloudKey(provider))
-    }
-
-    static func setCloudSourceConnected(_ provider: String, _ value: Bool) {
-        UserDefaults.standard.set(value, forKey: cloudKey(provider))
-    }
-}
-
-// MARK: - Junction API + Link session
-
-enum JunctionAPI {
-    private static let baseURL = URL(string: "https://www.appdozy.com")!
-
-    struct LinkTokenResponse: Decodable {
-        let linkWebUrl: String?
-        let error: String?
-    }
-
-    static func createLinkURL(clientUserId: String, provider: String) async throws -> URL {
-        var request = URLRequest(url: baseURL.appendingPathComponent("api/junction/link-token"))
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        let body: [String: String] = [
-            "clientUserId": clientUserId,
-            "provider": provider,
-            "redirectUrl": "dozy://junction-connected",
-        ]
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse else {
-            throw URLError(.badServerResponse)
-        }
-        let decoded = try JSONDecoder().decode(LinkTokenResponse.self, from: data)
-        guard http.statusCode == 200, let raw = decoded.linkWebUrl, let url = URL(string: raw) else {
-            throw NSError(
-                domain: "JunctionAPI",
-                code: http.statusCode,
-                userInfo: [NSLocalizedDescriptionKey: decoded.error ?? "Couldn’t start \(provider) connect."]
-            )
-        }
-        return url
-    }
-}
+// MARK: - Junction Link session
 
 final class JunctionLinkSession: NSObject, ASWebAuthenticationPresentationContextProviding {
     private var session: ASWebAuthenticationSession?

@@ -28,7 +28,7 @@ final class SleepViewModel: ObservableObject {
     private let store = SleepHealthStore.shared
     private let analyzer = SleepAnalyzer()
 
-    /// Call once on launch / when the Summary appears.
+    /// Call once on launch / when the Summary appears / after a cloud connect.
     func load() async {
         isLoading = true
         errorMessage = nil
@@ -42,7 +42,24 @@ final class SleepViewModel: ObservableObject {
             let start = Calendar.current.date(byAdding: .day, value: -30, to: end)!
             let samples = try await store.fetchSleepSamples(start: start, end: end)
 
-            let nights = analyzer.nights(from: samples)
+            var nights = analyzer.nights(from: samples)
+
+            // Merge Junction cloud sleep (Oura / Garmin / Whoop) for days
+            // HealthKit doesn't already cover. HealthKit wins on the same day.
+            if Account.hasCloudSourceConnected, let clientUserId = Account.userID {
+                do {
+                    let cloud = try await JunctionAPI.fetchSleep(
+                        clientUserId: clientUserId,
+                        startDate: start,
+                        endDate: end
+                    )
+                    nights = Self.mergeNights(healthKit: nights, junction: cloud)
+                } catch {
+                    // Cloud is additive — don't fail the whole load if Junction blips.
+                    print("[Dozy] Junction sleep fetch failed: \(error.localizedDescription)")
+                }
+            }
+
             guard !nights.isEmpty else {
                 errorMessage = SleepError.noData.errorDescription
                 return
@@ -70,6 +87,19 @@ final class SleepViewModel: ObservableObject {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    /// Prefer HealthKit when both sources have the same wake day; keep Junction-only nights.
+    static func mergeNights(healthKit: [NightSleep], junction: [NightSleep]) -> [NightSleep] {
+        let cal = Calendar.current
+        var byDay: [Date: NightSleep] = [:]
+        for night in junction {
+            byDay[cal.startOfDay(for: night.day)] = night
+        }
+        for night in healthKit {
+            byDay[cal.startOfDay(for: night.day)] = night
+        }
+        return Array(byDay.values).sorted { $0.day > $1.day }
     }
 
     // MARK: - Formatting helpers for the UI
