@@ -4,6 +4,7 @@
 //
 //  Created by Charvi Bansal on 6/6/26.
 //
+import AuthenticationServices
 import SwiftUI
 import UserNotifications
 
@@ -11,7 +12,12 @@ struct ProfileView: View {
     @EnvironmentObject private var subscriptions: SubscriptionManager
     @State private var notificationsEnabled = false
     @State private var healthConnected = true   // app reads HealthKit by design
+    @State private var ouraConnected = Account.isCloudSourceConnected("oura")
+    @State private var garminConnected = Account.isCloudSourceConnected("garmin")
+    @State private var connectingProvider: String? = nil
+    @State private var connectError: String? = nil
     @State private var isRestoring = false
+    @State private var linkSession: JunctionLinkSession? = nil
 
     private var dateString: String {
         let f = DateFormatter(); f.dateFormat = "EEEE, MMMM d"
@@ -58,29 +64,51 @@ struct ProfileView: View {
                     .font(Theme.serif(20))
                     .foregroundStyle(.white)
 
-                HStack(spacing: 14) {
-                    Image(systemName: "heart.fill")
-                        .font(Theme.serif(22))
-                        .foregroundStyle(Color(red: 0.95, green: 0.3, blue: 0.35))
-                        .frame(width: 28)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Apple Health")
-                            .font(Theme.serif(16))
-                            .foregroundStyle(.white)
-                        Text(healthConnected ? "Connected — reading your sleep"
-                                             : "Not connected")
-                            .font(Theme.body(13))
-                            .foregroundStyle(.white.opacity(0.6))
-                    }
-                    Spacer()
-                    Image(systemName: healthConnected ? "checkmark.circle.fill" : "circle")
-                        .foregroundStyle(healthConnected ? accent : .white.opacity(0.3))
-                }
-                .padding(18)
-                .background(Color.white.opacity(0.06))
-                .clipShape(RoundedRectangle(cornerRadius: 16))
+                VStack(spacing: 10) {
+                    sourceRow(
+                        icon: "heart.fill",
+                        iconColor: Color(red: 0.95, green: 0.3, blue: 0.35),
+                        title: "Apple Health",
+                        subtitle: healthConnected
+                            ? "Connected — reading your sleep"
+                            : "Not connected",
+                        connected: healthConnected,
+                        isBusy: false,
+                        action: nil
+                    )
 
-                Text("Trackers like Oura or Whoop appear here automatically once they're syncing to Apple Health.")
+                    sourceRow(
+                        icon: "circle.hexagongrid.fill",
+                        iconColor: Color(red: 0.55, green: 0.45, blue: 0.95),
+                        title: "Oura",
+                        subtitle: ouraConnected
+                            ? "Connected — cloud sleep"
+                            : "Connect your Oura account",
+                        connected: ouraConnected,
+                        isBusy: connectingProvider == "oura",
+                        action: ouraConnected ? nil : { connectCloudSource("oura") }
+                    )
+
+                    sourceRow(
+                        icon: "watch.analog",
+                        iconColor: Color(red: 0.25, green: 0.55, blue: 0.95),
+                        title: "Garmin",
+                        subtitle: garminConnected
+                            ? "Connected — cloud sleep"
+                            : "Connect your Garmin account",
+                        connected: garminConnected,
+                        isBusy: connectingProvider == "garmin",
+                        action: garminConnected ? nil : { connectCloudSource("garmin") }
+                    )
+                }
+
+                if let connectError {
+                    Text(connectError)
+                        .font(Theme.body(12))
+                        .foregroundStyle(Color(red: 1.0, green: 0.5, blue: 0.5))
+                }
+
+                Text("Oura and Garmin often already appear via Apple Health. Connect here if you want a direct cloud sync.")
                     .font(Theme.body(13))
                     .foregroundStyle(.white.opacity(0.5))
                     .fixedSize(horizontal: false, vertical: true)
@@ -88,7 +116,61 @@ struct ProfileView: View {
             .padding(.horizontal, 20).padding(.top, 12)
         }
         .background(Color(red: 0.07, green: 0.07, blue: 0.09).ignoresSafeArea())
-        .onAppear { refreshNotificationStatus() }
+        .onAppear {
+            refreshNotificationStatus()
+            ouraConnected = Account.isCloudSourceConnected("oura")
+            garminConnected = Account.isCloudSourceConnected("garmin")
+        }
+    }
+
+    // MARK: - Source row
+
+    private func sourceRow(
+        icon: String,
+        iconColor: Color,
+        title: String,
+        subtitle: String,
+        connected: Bool,
+        isBusy: Bool,
+        action: (() -> Void)?
+    ) -> some View {
+        Button {
+            action?()
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: icon)
+                    .font(Theme.serif(22))
+                    .foregroundStyle(iconColor)
+                    .frame(width: 28)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(Theme.serif(16))
+                        .foregroundStyle(.white)
+                    Text(subtitle)
+                        .font(Theme.body(13))
+                        .foregroundStyle(.white.opacity(0.6))
+                }
+                Spacer()
+                if isBusy {
+                    ProgressView().tint(accent)
+                } else if connected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(accent)
+                } else if action != nil {
+                    Text("Connect")
+                        .font(Theme.body(13, weight: .medium))
+                        .foregroundStyle(accent)
+                } else {
+                    Image(systemName: "circle")
+                        .foregroundStyle(.white.opacity(0.3))
+                }
+            }
+            .padding(18)
+            .background(Color.white.opacity(0.06))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+        }
+        .buttonStyle(.plain)
+        .disabled(action == nil || isBusy)
     }
 
     // MARK: - Account card
@@ -193,6 +275,52 @@ struct ProfileView: View {
         return (first + last).uppercased()
     }
 
+    // MARK: - Junction cloud connect
+
+    private func connectCloudSource(_ provider: String) {
+        guard let clientUserId = Account.userID, !clientUserId.isEmpty else {
+            connectError = "Sign in with Apple again so Dozy can link this tracker."
+            return
+        }
+
+        connectingProvider = provider
+        connectError = nil
+
+        Task {
+            do {
+                let url = try await JunctionAPI.createLinkURL(
+                    clientUserId: clientUserId,
+                    provider: provider
+                )
+                await MainActor.run {
+                    let session = JunctionLinkSession()
+                    linkSession = session
+                    session.start(url: url) { result in
+                        connectingProvider = nil
+                        linkSession = nil
+                        switch result {
+                        case .success(let connectedProvider):
+                            let slug = connectedProvider ?? provider
+                            Account.setCloudSourceConnected(slug, true)
+                            if slug == "oura" { ouraConnected = true }
+                            if slug == "garmin" { garminConnected = true }
+                        case .failure(let error):
+                            if (error as NSError).code == ASWebAuthenticationSessionError.canceledLogin.rawValue {
+                                return
+                            }
+                            connectError = error.localizedDescription
+                        }
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    connectingProvider = nil
+                    connectError = error.localizedDescription
+                }
+            }
+        }
+    }
+
     // MARK: - Notifications
 
     private func refreshNotificationStatus() {
@@ -218,5 +346,104 @@ struct ProfileView: View {
         if let url = URL(string: UIApplication.openSettingsURLString) {
             UIApplication.shared.open(url)
         }
+    }
+}
+
+// MARK: - Account cloud-source helpers
+
+extension Account {
+    private static func cloudKey(_ provider: String) -> String {
+        "account.cloud.\(provider)"
+    }
+
+    static func isCloudSourceConnected(_ provider: String) -> Bool {
+        UserDefaults.standard.bool(forKey: cloudKey(provider))
+    }
+
+    static func setCloudSourceConnected(_ provider: String, _ value: Bool) {
+        UserDefaults.standard.set(value, forKey: cloudKey(provider))
+    }
+}
+
+// MARK: - Junction API + Link session
+
+enum JunctionAPI {
+    private static let baseURL = URL(string: "https://www.appdozy.com")!
+
+    struct LinkTokenResponse: Decodable {
+        let linkWebUrl: String?
+        let error: String?
+    }
+
+    static func createLinkURL(clientUserId: String, provider: String) async throws -> URL {
+        var request = URLRequest(url: baseURL.appendingPathComponent("api/junction/link-token"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let body: [String: String] = [
+            "clientUserId": clientUserId,
+            "provider": provider,
+            "redirectUrl": "dozy://junction-connected",
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+        let decoded = try JSONDecoder().decode(LinkTokenResponse.self, from: data)
+        guard http.statusCode == 200, let raw = decoded.linkWebUrl, let url = URL(string: raw) else {
+            throw NSError(
+                domain: "JunctionAPI",
+                code: http.statusCode,
+                userInfo: [NSLocalizedDescriptionKey: decoded.error ?? "Couldn’t start \(provider) connect."]
+            )
+        }
+        return url
+    }
+}
+
+final class JunctionLinkSession: NSObject, ASWebAuthenticationPresentationContextProviding {
+    private var session: ASWebAuthenticationSession?
+
+    func start(url: URL, completion: @escaping (Result<String?, Error>) -> Void) {
+        let auth = ASWebAuthenticationSession(
+            url: url,
+            callbackURLScheme: "dozy"
+        ) { callbackURL, error in
+            if let error {
+                completion(.failure(error))
+                return
+            }
+            guard let callbackURL else {
+                completion(.failure(URLError(.badURL)))
+                return
+            }
+            let items = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false)?.queryItems
+            let state = items?.first(where: { $0.name == "state" })?.value
+            let provider = items?.first(where: { $0.name == "provider" })?.value
+            if state == "success" {
+                completion(.success(provider))
+            } else {
+                let message = items?.first(where: { $0.name == "error" })?.value
+                    ?? "Connection didn’t finish."
+                completion(.failure(NSError(
+                    domain: "JunctionLink",
+                    code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: message]
+                )))
+            }
+        }
+        auth.prefersEphemeralWebBrowserSession = false
+        auth.presentationContextProvider = self
+        session = auth
+        auth.start()
+    }
+
+    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+            .first(where: \.isKeyWindow)
+            ?? ASPresentationAnchor()
     }
 }
