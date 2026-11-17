@@ -10,6 +10,10 @@ import Charts
 struct SleepDebtView: View {
     @EnvironmentObject var vm: SleepViewModel
     @State private var selectedDay: Date? = nil
+    /// "Progress" when shown as a tab, "Sleep Debt" when opened from Today.
+    var title = "Sleep Debt"
+    /// The Progress tab also carries the measures behind the number.
+    var showsDetailRows = false
 
     private var dateString: String {
         let f = DateFormatter(); f.dateFormat = "EEEE, MMMM d"
@@ -20,7 +24,7 @@ struct SleepDebtView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Sleep Debt")
+                    Text(title)
                         .font(Theme.serif(40))
                         .foregroundStyle(.white)
                     Text(dateString)
@@ -28,7 +32,19 @@ struct SleepDebtView: View {
                         .foregroundStyle(.white.opacity(0.6))
                 }
 
-                chart
+                if vm.dailyDebt.contains(where: { $0.debt >= 60 }) {
+                    chart
+                } else {
+                    // A blank 14-day chart looks broken; say what it means instead.
+                    HighlightRow(
+                        icon: vm.nightsInWindow == 0 ? "moon.zzz" : "checkmark.circle.fill",
+                        tint: vm.nightsInWindow == 0 ? .white.opacity(0.5) : Theme.cyan,
+                        title: vm.nightsInWindow == 0 ? "No sleep data yet" : "No short nights in the last 14 days",
+                        detail: vm.nightsInWindow == 0
+                            ? "Wear your watch or tracker to bed and your nights will appear here."
+                            : "Dozy has \(vm.nightsInWindow) night\(vm.nightsInWindow == 1 ? "" : "s") of sleep data for this period. Days without data are left out."
+                    )
+                }
 
                 Text("Highlights")
                     .font(Theme.serif(20))
@@ -47,16 +63,27 @@ struct SleepDebtView: View {
                         }
                     }
                 }
+
+                if showsDetailRows {
+                    Text("Behind the number")
+                        .font(Theme.serif(20))
+                        .foregroundStyle(.white)
+                        .padding(.top, 4)
+                    BehindTheNumberRows()
+                }
             }
             .padding(.horizontal, 20)
             .padding(.top, 12)
+            .padding(.bottom, 24)
         }
+        // 1pt keeps scrolled content from sliding under the status bar.
+        .padding(.top, 1)
         .background(Color(red: 0.07, green: 0.07, blue: 0.09).ignoresSafeArea())
     }
 
     // MARK: - Chart with tap-to-read
 
-    private var debtColor: Color { Color(red: 0.95, green: 0.2, blue: 0.2) }
+    private var debtColor: Color { Theme.debtPink }
 
     private var selectedEntry: (day: Date, debt: TimeInterval)? {
         guard let selectedDay else { return nil }
@@ -75,7 +102,7 @@ struct SleepDebtView: View {
                     Text("·")
                         .foregroundStyle(.white.opacity(0.4))
                     Text(sel.debt < 60 ? "no debt" : "\(short(sel.debt)) behind")
-                        .foregroundStyle(debtColor)
+                        .foregroundStyle(sel.debt < 60 ? Theme.cyan : debtColor)
                 }
                 .font(Theme.body(14))
             } else {
@@ -140,13 +167,15 @@ struct SleepDebtView: View {
     }
 
     private var highlights: [Highlight] {
-        let days = vm.dailyDebt
+        // Only days that actually have a recorded night. A day with no data is not a "best night".
+        let recorded = Set(vm.ledger.filter(\.hadNight).map(\.day))
+        let days = vm.dailyDebt.filter { recorded.contains($0.day) }
         guard !days.isEmpty else { return [] }
 
         var result: [Highlight] = []
-        let green = Color(red: 0.3, green: 0.8, blue: 0.55)
-        let red = Color(red: 0.95, green: 0.3, blue: 0.3)
-        let blue = Color(red: 0.3, green: 0.65, blue: 1.0)
+        let green = Theme.cyan          // good news uses the accent
+        let red = Theme.debtPink
+        let blue = Theme.accentBlue
 
         if let best = days.min(by: { $0.debt < $1.debt }) {
             result.append(Highlight(

@@ -112,7 +112,8 @@ enum JunctionAPI {
                 core: core,
                 deep: deepSec,
                 rem: remSec,
-                awake: awakeSec
+                awake: awakeSec,
+                wake: bedtime_stop.flatMap(Self.parseISO)
             )
         }
 

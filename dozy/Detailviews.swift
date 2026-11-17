@@ -8,7 +8,7 @@ import SwiftUI
 
 struct NapWindowView: View {
     @EnvironmentObject var vm: SleepViewModel
-    @StateObject private var timer = NapTimer()
+    @EnvironmentObject private var timer: NapTimer
 
     private func time(_ d: Date) -> String {
         let f = DateFormatter(); f.dateFormat = "h:mm a"
@@ -45,6 +45,10 @@ struct NapWindowView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
 
+                if !timer.isRunning, let payback = vm.napPayback {
+                    NapPaybackCard(payback: payback)
+                }
+
                 // Hide the planning details while a nap is running.
                 if !timer.isRunning {
                     napTimeline
@@ -71,14 +75,14 @@ struct NapWindowView: View {
             }
             .padding(.horizontal, 20).padding(.top, 12)
         }
+        // 1pt keeps scrolled content from sliding under the status bar.
+        .padding(.top, 1)
         .background(Color(red: 0.07, green: 0.07, blue: 0.09).ignoresSafeArea())
         .onAppear {
             timer.requestNotificationPermission()
             timer.onNapCompleted = { start, end in
-                Task {
-                    try? await SleepHealthStore.shared.logNap(start: start, end: end)
-                    await vm.load()   // refresh debt now that the nap is logged
-                }
+                // Logs the nap, refreshes debt, and records what it paid back.
+                Task { await vm.completeNap(start: start, end: end) }
             }
         }
     }
@@ -222,9 +226,9 @@ struct RestorativeView: View {
         return f.string(from: .now)
     }
 
-    private let restColor = Color(red: 0.95, green: 0.6, blue: 0.1)
-    private let deepColor = Color(red: 0.10, green: 0.45, blue: 0.95)
-    private let remColor  = Color(red: 0.55, green: 0.45, blue: 0.95)
+    private let restColor = Theme.violet
+    private let deepColor = Theme.accentBlue
+    private let remColor  = Theme.violet
     private let lightColor = Color(red: 0.30, green: 0.80, blue: 0.85)
 
     var body: some View {
@@ -251,6 +255,8 @@ struct RestorativeView: View {
             }
             .padding(.horizontal, 20).padding(.top, 12)
         }
+        // 1pt keeps scrolled content from sliding under the status bar.
+        .padding(.top, 1)
         .background(Color(red: 0.07, green: 0.07, blue: 0.09).ignoresSafeArea())
     }
 

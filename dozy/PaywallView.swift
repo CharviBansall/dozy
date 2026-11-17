@@ -43,7 +43,7 @@ struct PaywallView: View {
                 if let errorMessage = subscriptions.errorMessage {
                     Text(errorMessage)
                         .font(Theme.body(13))
-                        .foregroundStyle(Color(red: 1.0, green: 0.5, blue: 0.5))
+                        .foregroundStyle(Theme.debtPink)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 36)
                         .padding(.top, 14)

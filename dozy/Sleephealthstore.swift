@@ -43,6 +43,33 @@ final class SleepHealthStore {
         try await store.save(sample)
     }
 
+    // MARK: - Background updates
+
+    private var sleepObserver: HKObserverQuery?
+
+    /// Runs `onChange` whenever new sleep data is written to Health, waking the app in
+    /// the background if needed. Needs the HealthKit background-delivery entitlement.
+    func observeSleep(onChange: @escaping () async -> Void) {
+        guard isAvailable, sleepObserver == nil else { return }
+        let sleepType = HKCategoryType(.sleepAnalysis)
+
+        let query = HKObserverQuery(sampleType: sleepType, predicate: nil) { _, completion, error in
+            if error != nil {
+                // Usually Health access hasn't been granted yet. Allow a later retry.
+                completion()
+                Task { @MainActor in SleepHealthStore.shared.sleepObserver = nil }
+                return
+            }
+            Task { @MainActor in
+                await onChange()
+                completion()   // tells HealthKit this update has been handled
+            }
+        }
+        sleepObserver = query
+        store.execute(query)
+        store.enableBackgroundDelivery(for: sleepType, frequency: .immediate) { _, _ in }
+    }
+
     // MARK: - Raw fetch
 
     /// Fetch all sleep-analysis samples in [start, end).

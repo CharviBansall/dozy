@@ -19,6 +19,9 @@ struct NightSleep: Identifiable {
     let rem: TimeInterval
     /// Time scored as "awake" inside the sleep window (not counted as asleep).
     let awake: TimeInterval
+    /// The moment this sleep ended, when the source reports it. Used to learn
+    /// the usual wake-up time for the bedtime recommendation.
+    var wake: Date? = nil
 
     /// Total time actually asleep (excludes awake and inBed).
     var totalAsleep: TimeInterval { core + deep + rem }

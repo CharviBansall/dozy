@@ -96,7 +96,8 @@ struct SleepAnalyzer {
             }
             // Attribute to the wake-up day (end of the last interval).
             let wakeDay = calendar.startOfDay(for: group.last!.end)
-            return NightSleep(day: wakeDay, core: core, deep: deep, rem: rem, awake: awake)
+            return NightSleep(day: wakeDay, core: core, deep: deep, rem: rem, awake: awake,
+                              wake: group.last!.end)
         }
     }
 
@@ -117,8 +118,10 @@ struct SleepAnalyzer {
         let frac = rank - Double(lo)
         let value = sorted[lo] + (sorted[hi] - sorted[lo]) * frac
 
-        // Clamp to a sane human range (5h–10h).
-        return min(max(value, 5 * 3600), 10 * 3600)
+        // Never below 7h: the AASM / Sleep Research Society consensus is that adults
+        // need 7 or more hours a night, so a run of short nights must not teach Dozy
+        // that 5 or 6 hours is enough. Capped at 10h.
+        return min(max(value, 7 * 3600), 10 * 3600)
     }
 
     // MARK: - Step 4: the three metrics
@@ -148,28 +151,11 @@ struct SleepAnalyzer {
 
     /// Total accumulated sleep debt (the Summary number).
     ///
-    /// = sum of nightly shortfalls over the window, MINUS recovery from naps.
-    /// Naps count at full 1:1 credit (WHOOP), capped at 30 min per day so a single
-    /// day's napping can't erase a multi-night backlog. A nap can only reduce
-    /// existing debt — it never creates any.
+    /// The closing balance of the running ledger in `debtLedger` (Recoveryplan.swift):
+    /// short nights add debt; naps (up to 30 min a day) and nights longer than need
+    /// (up to 60 min a night) pay it back. Credits never push the balance below zero.
     func totalSleepDebt(nights: [NightSleep], need: TimeInterval, windowDays: Int = 14) -> TimeInterval {
-        let napThreshold: TimeInterval = 2 * 3600
-        let napCreditCap: TimeInterval = 30 * 60
-        let today = calendar.startOfDay(for: .now)
-        let windowStart = calendar.date(byAdding: .day, value: -(windowDays - 1), to: today)!
-
-        // Base debt from nights.
-        let baseDebt = dailyDebt(nights: nights, need: need, windowDays: windowDays)
-            .reduce(0) { $0 + $1.debt }
-
-        // Recovery from naps in the window, capped per day, full credit.
-        var napByDay: [Date: TimeInterval] = [:]
-        for n in nights where n.totalAsleep < napThreshold && n.day >= windowStart {
-            napByDay[n.day, default: 0] += n.totalAsleep
-        }
-        let totalNapCredit = napByDay.values.reduce(0) { $0 + min($1, napCreditCap) }
-
-        return max(0, baseDebt - totalNapCredit)
+        debtLedger(nights: nights, need: need, windowDays: windowDays).last?.balance ?? 0
     }
 
     /// Restorative % for the most recent night with data. (Deep + REM) / total asleep.

@@ -12,6 +12,7 @@ struct ProfileView: View {
     @EnvironmentObject private var subscriptions: SubscriptionManager
     @EnvironmentObject private var sleepVM: SleepViewModel
     @State private var notificationsEnabled = false
+    @State private var morningSummaryOn = MorningBrief.isEnabled
     @State private var healthConnected = true   // app reads HealthKit by design
     @State private var ouraConnected = Account.isCloudSourceConnected("oura")
     @State private var garminConnected = Account.isCloudSourceConnected("garmin")
@@ -31,7 +32,7 @@ struct ProfileView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                header(title: "Profile", date: dateString)
+                header(title: "You", date: dateString)
 
                 accountCard
 
@@ -61,6 +62,28 @@ struct ProfileView: View {
                     else { openSettingsHint() }
                 }
 
+                Toggle(isOn: $morningSummaryOn) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Morning summary")
+                            .font(Theme.serif(16))
+                            .foregroundStyle(.white)
+                        Text("What last night did to your debt, and today's one thing.")
+                            .font(Theme.body(13))
+                            .foregroundStyle(.white.opacity(0.6))
+                    }
+                }
+                .tint(accent)
+                .padding(18)
+                .background(Color.white.opacity(0.06))
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .onChange(of: morningSummaryOn) { _, newValue in
+                    MorningBrief.isEnabled = newValue
+                    if newValue {
+                        UNUserNotificationCenter.current()
+                            .requestAuthorization(options: [.alert, .sound]) { _, _ in }
+                    }
+                }
+
                 // Data sources
                 Text("Data")
                     .font(Theme.serif(20))
@@ -69,7 +92,7 @@ struct ProfileView: View {
                 VStack(spacing: 10) {
                     sourceRow(
                         icon: "heart.fill",
-                        iconColor: Color(red: 0.95, green: 0.3, blue: 0.35),
+                        iconColor: Theme.iconNeutral,
                         title: "Apple Health",
                         subtitle: healthConnected
                             ? "Connected — reading your sleep"
@@ -81,7 +104,7 @@ struct ProfileView: View {
 
                     sourceRow(
                         icon: "circle.hexagongrid.fill",
-                        iconColor: Color(red: 0.55, green: 0.45, blue: 0.95),
+                        iconColor: Theme.iconNeutral,
                         title: "Oura",
                         subtitle: cloudSubtitle("Oura", connected: ouraConnected),
                         connected: ouraConnected,
@@ -92,7 +115,7 @@ struct ProfileView: View {
 
                     sourceRow(
                         icon: "watch.analog",
-                        iconColor: Color(red: 0.25, green: 0.55, blue: 0.95),
+                        iconColor: Theme.iconNeutral,
                         title: "Garmin",
                         subtitle: cloudSubtitle("Garmin", connected: garminConnected),
                         connected: garminConnected,
@@ -105,7 +128,7 @@ struct ProfileView: View {
                 if let connectError {
                     Text(connectError)
                         .font(Theme.body(12))
-                        .foregroundStyle(Color(red: 1.0, green: 0.5, blue: 0.5))
+                        .foregroundStyle(Theme.debtPink)
                 }
 
                 Text("Oura and Garmin often already appear via Apple Health. Connect here if you want a direct cloud sync.")
@@ -115,6 +138,8 @@ struct ProfileView: View {
             }
             .padding(.horizontal, 20).padding(.top, 12)
         }
+        // 1pt keeps scrolled content from sliding under the status bar.
+        .padding(.top, 1)
         .background(Color(red: 0.07, green: 0.07, blue: 0.09).ignoresSafeArea())
         .onAppear {
             refreshNotificationStatus()
@@ -260,7 +285,7 @@ struct ProfileView: View {
                 if let errorMessage = subscriptions.errorMessage {
                     Text(errorMessage)
                         .font(Theme.body(12))
-                        .foregroundStyle(Color(red: 1.0, green: 0.5, blue: 0.5))
+                        .foregroundStyle(Theme.debtPink)
                 }
             }
             .padding(18)
