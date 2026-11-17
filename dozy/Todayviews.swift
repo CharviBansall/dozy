@@ -2,33 +2,14 @@
 //  Todayviews.swift
 //  dozy
 //
-//  Home's "one thing to do today" card, and the feedback that shows it worked.
+//  Today's "one thing to do" card, and the cards that show it worked.
 //
 
 import SwiftUI
 
-/// Good news uses the accent colour, not a separate green.
-private let paidBackTint = Theme.cyan
-
 private func clockTime(_ date: Date) -> String {
     let f = DateFormatter(); f.dateFormat = "h:mm a"
     return f.string(from: date)
-}
-
-/// Last night's result on top, today's action under it.
-struct TodayPlanSection: View {
-    @EnvironmentObject var vm: SleepViewModel
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if let result = vm.lastNightResult {
-                LastNightRow(result: result)
-            }
-            if let action = vm.todayAction {
-                TodayActionCard(action: action)
-            }
-        }
-    }
 }
 
 // MARK: - Today's action
@@ -49,36 +30,29 @@ struct TodayActionCard: View {
                 }
                 .buttonStyle(.plain)
 
-                Button { vm.skipNapToday() } label: {
-                    Text("Can't nap today?")
-                        .font(Theme.body(13, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.55))
-                }
-                .padding(.leading, 4)
+                Button { vm.skipNapToday() } label: { link("Can't nap today?") }
             }
 
         case .bedtime(let plan):
-            VStack(alignment: .leading, spacing: 10) {
-                if plan.bedtime <= Date() {
-                    card(icon: "bed.double.fill",
-                         title: "Head to bed now",
-                         detail: "Your target was \(clockTime(plan.bedtime)). Every minute before your \(clockTime(plan.wake)) wake-up still counts.",
-                         showsChevron: false)
-                } else {
-                    card(icon: "bed.double.fill",
-                         title: "Be in bed by \(clockTime(plan.bedtime))",
-                         detail: bedtimeDetail(plan),
-                         showsChevron: false)
-                }
-
-                NavigationLink { NapWindowView() } label: {
-                    Text("Nap timer")
-                        .font(Theme.body(13, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.55))
-                }
-                .padding(.leading, 4)
+            if plan.bedtime <= Date() {
+                card(icon: "bed.double.fill",
+                     title: "Head to bed now",
+                     detail: "Your target was \(clockTime(plan.bedtime)). Every minute before your \(clockTime(plan.wake)) wake-up still counts.",
+                     showsChevron: false)
+            } else {
+                card(icon: "bed.double.fill",
+                     title: "Be in bed by \(clockTime(plan.bedtime))",
+                     detail: bedtimeDetail(plan),
+                     showsChevron: false)
             }
         }
+    }
+
+    private func link(_ text: String) -> some View {
+        Text(text)
+            .font(Theme.body(15, weight: .medium))
+            .foregroundStyle(Theme.cyan)
+            .padding(.leading, 16)
     }
 
     private func napDetail(length: TimeInterval, earliest: Date, latest: Date) -> String {
@@ -95,62 +69,81 @@ struct TodayActionCard: View {
 
     private func card(icon: String, title: String, detail: String, showsChevron: Bool) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                Image(systemName: icon)
-                    .font(Theme.body(11))
-                Text("TODAY'S ONE THING")
-                    .font(Theme.body(11, weight: .semibold))
-                    .tracking(1.2)
-                Spacer()
-                if showsChevron {
-                    Image(systemName: "chevron.right")
-                        .font(Theme.body(12))
-                        .foregroundStyle(.white.opacity(0.4))
-                }
-            }
-            .foregroundStyle(Theme.cyan)
+            CardHeader(icon: icon, title: "Today's One Thing", color: Theme.cyan, showsChevron: showsChevron)
 
             Text(title)
-                .font(Theme.serif(28))
-                .foregroundStyle(.white)
+                .font(Theme.serif(24))
+                .foregroundStyle(Theme.text)
+                .multilineTextAlignment(.leading)
 
             Text(detail)
-                .font(Theme.body(14))
-                .foregroundStyle(.white.opacity(0.7))
+                .font(Theme.body(15))
+                .foregroundStyle(Theme.secondary)
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.06))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Theme.cyan.opacity(0.35), lineWidth: 1)
-        )
+        .healthCard()
+    }
+}
+
+// MARK: - Nap
+
+/// The way into the nap timer, as a proper card. Shown on Today whenever the
+/// day's action is not already a nap.
+struct NapCard: View {
+    @EnvironmentObject var vm: SleepViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            CardHeader(icon: "moon.fill", title: "Nap Timer", color: Theme.cyan)
+
+            VStack(alignment: .leading, spacing: 2) {
+                DurationText(seconds: vm.napLength)
+                Text("Recommended nap. Best between \(clockTime(vm.napEarliest)) and \(clockTime(vm.napLatest)).")
+                    .font(Theme.body(13))
+                    .foregroundStyle(Theme.secondary)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .healthCard()
     }
 }
 
 // MARK: - Results
 
-/// What last night did to the debt.
-struct LastNightRow: View {
+/// What last night did to the debt, as a pinned card.
+struct LastNightCard: View {
     let result: SleepViewModel.LastNightResult
+    var time: String = ""
 
     var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: icon)
-                .foregroundStyle(tint)
-            Text(text)
-                .font(Theme.body(14, weight: .medium))
-                .foregroundStyle(.white.opacity(0.85))
-            Spacer(minLength: 0)
+        VStack(alignment: .leading, spacing: 8) {
+            CardHeader(icon: icon, title: "Last Night", color: tint, trailing: time, showsChevron: false)
+
+            VStack(alignment: .leading, spacing: 2) {
+                switch result {
+                case .paidBack(let amount):
+                    DurationText(seconds: amount)
+                    caption("Paid back")
+                case .added(let amount):
+                    DurationText(seconds: amount)
+                    caption("Added to your debt")
+                case .steady:
+                    Text("Level")
+                        .font(Theme.number(24))
+                        .foregroundStyle(Theme.text)
+                    caption("Your debt didn't move")
+                }
+            }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(tint.opacity(0.12))
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .healthCard()
+    }
+
+    private func caption(_ text: String) -> some View {
+        Text(text)
+            .font(Theme.body(13))
+            .foregroundStyle(Theme.secondary)
     }
 
     private var icon: String {
@@ -161,22 +154,12 @@ struct LastNightRow: View {
         }
     }
 
+    /// Good news uses the accent colour, not a separate green.
     private var tint: Color {
         switch result {
-        case .paidBack: return paidBackTint
+        case .paidBack: return Theme.cyan
         case .added:    return Theme.debtPink
         case .steady:   return Theme.accentBlue
-        }
-    }
-
-    private var text: String {
-        switch result {
-        case .paidBack(let amount):
-            return "Last night paid back \(SleepViewModel.duration(amount))"
-        case .added(let amount):
-            return "Last night added \(SleepViewModel.duration(amount)) to your debt"
-        case .steady:
-            return "Last night kept your debt level"
         }
     }
 }
@@ -186,37 +169,21 @@ struct NapPaybackCard: View {
     let payback: SleepViewModel.NapPayback
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             if payback.paidBack >= 60 {
-                Label {
-                    Text("That nap paid back \(SleepViewModel.duration(payback.paidBack))")
-                        .foregroundStyle(.white)
-                } icon: {
-                    Image(systemName: "arrow.down.circle.fill").foregroundStyle(paidBackTint)
-                }
-                .font(Theme.serif(18))
-
-                Text("Sleep debt: \(SleepViewModel.duration(payback.before)) → \(SleepViewModel.duration(payback.after))")
-                    .font(Theme.body(14))
-                    .foregroundStyle(.white.opacity(0.7))
+                CardHeader(icon: "arrow.down.circle.fill", title: "Nap Complete", color: Theme.cyan, showsChevron: false)
+                DurationText(seconds: payback.paidBack)
+                Text("Paid back. Sleep debt: \(SleepViewModel.duration(payback.before)) → \(SleepViewModel.duration(payback.after))")
+                    .font(Theme.body(13))
+                    .foregroundStyle(Theme.secondary)
             } else {
-                Label {
-                    Text("Nap done")
-                        .foregroundStyle(.white)
-                } icon: {
-                    Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.cyan)
-                }
-                .font(Theme.serif(18))
-
+                CardHeader(icon: "checkmark.circle.fill", title: "Nap Complete", color: Theme.cyan, showsChevron: false)
                 Text("Your debt didn't move this time. Naps count for up to 30 minutes a day.")
-                    .font(Theme.body(14))
-                    .foregroundStyle(.white.opacity(0.7))
+                    .font(Theme.body(15))
+                    .foregroundStyle(Theme.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.06))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .healthCard()
     }
 }

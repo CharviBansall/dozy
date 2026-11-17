@@ -20,7 +20,7 @@ struct DozyApp: App {
         // Tab bar sits on the app's own background instead of a grey slab.
         let tabBar = UITabBarAppearance()
         tabBar.configureWithOpaqueBackground()
-        tabBar.backgroundColor = UIColor(Theme.background)
+        tabBar.backgroundColor = Theme.cardUI
         UITabBar.appearance().standardAppearance = tabBar
         UITabBar.appearance().scrollEdgeAppearance = tabBar
         // Must be registered at every launch, including HealthKit's background ones.
@@ -32,14 +32,14 @@ struct DozyApp: App {
             Group {
                 if !hasOnboarded {
                     OnboardingFlow()
+                        .environmentObject(vm)
                 } else if subscriptions.isLoading {
                     ZStack {
-                        DozyBackground()
+                        Theme.background.ignoresSafeArea()
                         ProgressView()
-                            .tint(.white)
+                            .tint(Theme.secondary)
                             .scaleEffect(1.2)
                     }
-                    .preferredColorScheme(.dark)
                 } else if !subscriptions.isEntitled {
                     PaywallView()
                         .environmentObject(subscriptions)
@@ -59,9 +59,9 @@ struct DozyApp: App {
                     .environmentObject(subscriptions)
                 }
             }
-            .preferredColorScheme(.dark)
             // Cyan, not system blue, for the selected tab, Back and links.
             .tint(Theme.cyan)
+            .onOpenURL { url in _ = GoogleAuth.handle(url) }
             .task {
                 await subscriptions.start()
                 MorningBrief.isEntitled = subscriptions.isEntitled

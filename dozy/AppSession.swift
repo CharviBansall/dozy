@@ -23,15 +23,18 @@ enum AppSession {
     enum Failure: LocalizedError {
         case signInRequired
         case wrongAppleAccount
+        case wrongGoogleAccount
         case missingIdentityToken
         case server(String)
 
         var errorDescription: String? {
             switch self {
             case .signInRequired:
-                return "Sign in with Apple again so Dozy can sync this tracker."
+                return "Sign in again so Dozy can sync this tracker."
             case .wrongAppleAccount:
                 return "That’s a different Apple Account from the one Dozy is signed in with."
+            case .wrongGoogleAccount:
+                return "That’s a different Google Account from the one Dozy is signed in with."
             case .missingIdentityToken:
                 return "Apple didn’t confirm the sign in. Please try again."
             case .server(let message):
@@ -100,6 +103,47 @@ enum AppSession {
         let stored = Stored(userID: userId, token: sessionToken, expiresAt: expiresAt)
         SessionKeychain.write(try JSONEncoder().encode(stored))
         needsSignIn = false
+    }
+
+    /// Swaps a Google ID token for a Dozy session and stores it.
+    ///
+    /// Server contract, mirroring the Apple route: `POST /api/auth/google` with
+    /// `{ "idToken": "<jwt>" }` returns `{ "userId", "sessionToken", "expiresAt" }`.
+    /// The server chooses `userId`; it is returned so the app can adopt it.
+    /// Pass `expectedUserID` when renewing, so a different Google account is refused.
+    @discardableResult
+    static func exchangeGoogle(idToken: String, expectedUserID: String? = nil) async throws -> String {
+        var request = URLRequest(url: baseURL.appendingPathComponent("api/auth/google"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["idToken": idToken])
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+
+        struct Body: Decodable {
+            let userId: String?
+            let sessionToken: String?
+            let expiresAt: String?
+            let error: String?
+        }
+        let body = try? JSONDecoder().decode(Body.self, from: data)
+
+        guard http.statusCode == 200,
+              let userId = body?.userId,
+              let sessionToken = body?.sessionToken,
+              let expiresAt = body?.expiresAt.flatMap(parseDate)
+        else {
+            throw Failure.server(body?.error ?? "Couldn’t sign in to Dozy (\(http.statusCode)).")
+        }
+        if let expectedUserID, userId != expectedUserID { throw Failure.wrongGoogleAccount }
+
+        let stored = Stored(userID: userId, token: sessionToken, expiresAt: expiresAt)
+        SessionKeychain.write(try JSONEncoder().encode(stored))
+        needsSignIn = false
+        return userId
     }
 
     /// Forgets the stored session but keeps `needsSignIn` as it is.

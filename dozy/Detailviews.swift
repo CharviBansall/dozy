@@ -19,7 +19,7 @@ struct NapWindowView: View {
         return f.string(from: .now)
     }
 
-    private let accent = Color(red: 0.30, green: 0.80, blue: 0.85)
+    private let accent = Theme.cyan
     private var napMinutes: Int { Int((vm.napLength / 60).rounded()) }
 
     var body: some View {
@@ -31,12 +31,12 @@ struct NapWindowView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(timer.isRunning ? "Napping…" : "A \(napMinutes)-minute nap")
                         .font(Theme.serif(30))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.text)
                     Text(timer.isRunning
                          ? "Rest easy — Dozy will wake you when it's time."
                          : napReason)
                         .font(Theme.body(15))
-                        .foregroundStyle(.white.opacity(0.65))
+                        .foregroundStyle(Theme.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
@@ -56,7 +56,7 @@ struct NapWindowView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Label {
                             Text("Best between \(time(vm.napEarliest)) and \(time(vm.napLatest))")
-                                .foregroundStyle(.white)
+                                .foregroundStyle(Theme.text)
                         } icon: {
                             Image(systemName: "clock").foregroundStyle(accent)
                         }
@@ -64,12 +64,12 @@ struct NapWindowView: View {
 
                         Text(expectation)
                             .font(Theme.body(15))
-                            .foregroundStyle(.white.opacity(0.7))
+                            .foregroundStyle(Theme.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(18)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.white.opacity(0.06))
+                    .background(Theme.card)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
                 }
             }
@@ -77,7 +77,7 @@ struct NapWindowView: View {
         }
         // 1pt keeps scrolled content from sliding under the status bar.
         .padding(.top, 1)
-        .background(Color(red: 0.07, green: 0.07, blue: 0.09).ignoresSafeArea())
+        .background(Theme.background.ignoresSafeArea())
         .onAppear {
             timer.requestNotificationPermission()
             timer.onNapCompleted = { start, end in
@@ -108,7 +108,7 @@ struct NapWindowView: View {
             GeometryReader { geo in
                 let w = geo.size.width
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Color.white.opacity(0.08)).frame(height: 10)
+                    Capsule().fill(Theme.track).frame(height: 10)
                     Capsule()
                         .fill(LinearGradient(colors: [accent, Color(red: 0.1, green: 0.5, blue: 0.95)],
                                              startPoint: .leading, endPoint: .trailing))
@@ -120,9 +120,9 @@ struct NapWindowView: View {
             .frame(height: 10)
 
             HStack {
-                Text("Noon").font(Theme.body(11)).foregroundStyle(.white.opacity(0.4))
+                Text("Noon").font(Theme.body(11)).foregroundStyle(Theme.secondary)
                 Spacer()
-                Text("6 PM").font(Theme.body(11)).foregroundStyle(.white.opacity(0.4))
+                Text("6 PM").font(Theme.body(11)).foregroundStyle(Theme.secondary)
             }
         }
         .padding(.vertical, 4)
@@ -158,7 +158,7 @@ struct NapBlob: View {
     let napLength: TimeInterval
 
     @State private var breathing = false
-    private let accent = Color(red: 0.30, green: 0.80, blue: 0.85)
+    private let accent = Theme.cyan
 
     var body: some View {
         Button {
@@ -168,7 +168,7 @@ struct NapBlob: View {
                 // Progress ring (only while running).
                 if timer.isRunning {
                     Circle()
-                        .stroke(Color.white.opacity(0.12), lineWidth: 6)
+                        .stroke(Theme.track, lineWidth: 6)
                         .frame(width: 196, height: 196)
                     Circle()
                         .trim(from: 0, to: timer.progress)
@@ -198,14 +198,14 @@ struct NapBlob: View {
                             .foregroundStyle(.white)
                         Text("tap to cancel")
                             .font(Theme.body(12))
-                            .foregroundStyle(.white.opacity(0.8))
+                            .foregroundStyle(.white)
                     } else {
                         Image(systemName: "play.fill")
                             .font(Theme.serif(30))
                             .foregroundStyle(.white)
                         Text("start nap")
                             .font(Theme.body(13))
-                            .foregroundStyle(.white.opacity(0.9))
+                            .foregroundStyle(.white)
                     }
                 }
             }
@@ -229,7 +229,7 @@ struct RestorativeView: View {
     private let restColor = Theme.violet
     private let deepColor = Theme.accentBlue
     private let remColor  = Theme.violet
-    private let lightColor = Color(red: 0.30, green: 0.80, blue: 0.85)
+    private let lightColor = Theme.cyan
 
     var body: some View {
         ScrollView {
@@ -245,19 +245,19 @@ struct RestorativeView: View {
 
                     Text(verdict)
                         .font(Theme.body(15))
-                        .foregroundStyle(.white.opacity(0.7))
+                        .foregroundStyle(Theme.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 } else {
                     Text("No sleep recorded yet. Once you've tracked a night, you'll see how much of it was truly restorative.")
                         .font(Theme.body(15))
-                        .foregroundStyle(.white.opacity(0.7))
+                        .foregroundStyle(Theme.secondary)
                 }
             }
             .padding(.horizontal, 20).padding(.top, 12)
         }
         // 1pt keeps scrolled content from sliding under the status bar.
         .padding(.top, 1)
-        .background(Color(red: 0.07, green: 0.07, blue: 0.09).ignoresSafeArea())
+        .background(Theme.background.ignoresSafeArea())
     }
 
     // MARK: - Circular gauge vs the 40% goal
@@ -279,7 +279,7 @@ struct RestorativeView: View {
                     .foregroundStyle(restColor)
                 Text("% restorative")
                     .font(Theme.body(13))
-                    .foregroundStyle(.white.opacity(0.6))
+                    .foregroundStyle(Theme.secondary)
             }
         }
         .frame(width: 200, height: 200)
@@ -310,16 +310,16 @@ struct RestorativeView: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.06))
+        .background(Theme.card)
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
     private func stageRow(color: Color, name: String, value: TimeInterval) -> some View {
         HStack(spacing: 10) {
             Circle().fill(color).frame(width: 9, height: 9)
-            Text(name).foregroundStyle(.white.opacity(0.85))
+            Text(name).foregroundStyle(Theme.text)
             Spacer()
-            Text(mins(value)).foregroundStyle(.white).fontWeight(.medium)
+            Text(mins(value)).foregroundStyle(Theme.text).fontWeight(.medium)
         }
         .font(Theme.body(15))
     }
@@ -341,15 +341,15 @@ struct RestorativeView: View {
     }
 }
 
-// Shared header used by detail screens.
+// Shared large title: a small caption above a bold title, as in Health.
 @ViewBuilder
 func header(title: String, date: String) -> some View {
     VStack(alignment: .leading, spacing: 2) {
+        Text(date.uppercased())
+            .font(Theme.body(13, weight: .semibold))
+            .foregroundStyle(Theme.secondary)
         Text(title)
-            .font(Theme.serif(40))
-            .foregroundStyle(.white)
-        Text(date)
-            .font(Theme.body(14))
-            .foregroundStyle(.white.opacity(0.6))
+            .font(Theme.serif(34))
+            .foregroundStyle(Theme.text)
     }
 }

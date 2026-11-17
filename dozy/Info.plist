@@ -17,6 +17,16 @@
 				<string>dozy</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>google-sign-in</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.374141177025-cdld904l4su24dhpc8naoo5otfsb6l64</string>
+			</array>
+		</dict>
 	</array>
+	<key>GIDClientID</key>
+	<string>374141177025-cdld904l4su24dhpc8naoo5otfsb6l64.apps.googleusercontent.com</string>
 </dict>
 </plist>

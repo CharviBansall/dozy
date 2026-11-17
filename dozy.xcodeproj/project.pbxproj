@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		A1E98CDD2FDA1BB3006E310F /* DozyWatch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = A1E98CD32FDA1BB2006E310F /* DozyWatch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		B0D0A0030000000000000001 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = B0D0A0020000000000000001 /* GoogleSignIn */; };
+		B0D0A0030000000000000002 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = B0D0A0020000000000000002 /* GoogleSignInSwift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -81,6 +83,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B0D0A0030000000000000001 /* GoogleSignIn in Frameworks */,
+				B0D0A0030000000000000002 /* GoogleSignInSwift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -134,6 +138,8 @@
 			);
 			name = dozy;
 			packageProductDependencies = (
+				B0D0A0020000000000000001 /* GoogleSignIn */,
+				B0D0A0020000000000000002 /* GoogleSignInSwift */,
 			);
 			productName = dozy;
 			productReference = A1DCB9CD2FC2D1A200A5D086 /* dozy.app */;
@@ -189,6 +195,9 @@
 			);
 			mainGroup = A1DCB9C42FC2D1A200A5D086;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				B0D0A0010000000000000001 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A1DCB9CE2FC2D1A200A5D086 /* Products */;
 			projectDirPath = "";
@@ -553,6 +562,30 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		B0D0A0010000000000000001 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 8.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		B0D0A0020000000000000001 /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B0D0A0010000000000000001 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+		B0D0A0020000000000000002 /* GoogleSignInSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B0D0A0010000000000000001 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignInSwift;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A1DCB9C52FC2D1A200A5D086 /* Project object */;
 }

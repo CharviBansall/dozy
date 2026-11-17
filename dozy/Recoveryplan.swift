@@ -39,6 +39,30 @@ enum TodayAction {
     case bedtime(BedtimePlan)
 }
 
+/// What the user told Dozy during onboarding. The plan is built around these.
+enum PlanPreferences {
+    private static let wakeKey = "plan.wakeMinutes"
+    private static let napKey = "plan.napOnWorkdays"
+
+    /// The wake-up time the user needs, as minutes after midnight. Nil until they set one.
+    static var wakeMinutes: Int? {
+        get { UserDefaults.standard.object(forKey: wakeKey) as? Int }
+        set { UserDefaults.standard.set(newValue, forKey: wakeKey) }
+    }
+
+    /// "yes", "sometimes" or "no".
+    static var napOnWorkdays: String {
+        get { UserDefaults.standard.string(forKey: napKey) ?? "sometimes" }
+        set { UserDefaults.standard.set(newValue, forKey: napKey) }
+    }
+
+    /// True on a weekday for someone who said they can't nap on workdays.
+    static func napsOff(on date: Date, calendar: Calendar) -> Bool {
+        guard napOnWorkdays == "no" else { return false }
+        return (2...6).contains(calendar.component(.weekday, from: date))
+    }
+}
+
 extension SleepAnalyzer {
 
     /// A session shorter than this is a nap, otherwise a night.
@@ -146,7 +170,8 @@ extension SleepAnalyzer {
                      need: TimeInterval,
                      totalDebt: TimeInterval,
                      now: Date = .now) -> BedtimePlan {
-        let wakeMinutes = typicalWakeMinutes(nights: nights) ?? 7 * 60
+        // The wake-up the user asked for wins; otherwise their usual one, else 7:00 AM.
+        let wakeMinutes = PlanPreferences.wakeMinutes ?? typicalWakeMinutes(nights: nights) ?? 7 * 60
         let today = calendar.startOfDay(for: now)
         var wake = calendar.date(bySettingHour: wakeMinutes / 60, minute: wakeMinutes % 60,
                                  second: 0, of: today) ?? today
@@ -191,7 +216,8 @@ extension SleepAnalyzer {
             $0.totalAsleep < Self.nightThreshold && $0.day == today
         }
 
-        if totalDebt >= Self.napWorthwhileDebt, now <= nap.latest, !nappedToday, !napSkipped {
+        let napsOff = napSkipped || PlanPreferences.napsOff(on: now, calendar: calendar)
+        if totalDebt >= Self.napWorthwhileDebt, now <= nap.latest, !nappedToday, !napsOff {
             return .nap(length: nap.length, earliest: nap.earliest, latest: nap.latest)
         }
         return .bedtime(bedtimePlan(nights: nights, need: need, totalDebt: totalDebt, now: now))

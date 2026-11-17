@@ -26,11 +26,19 @@ enum Account {
     static var userID: String? { UserDefaults.standard.string(forKey: "account.userID") }
     static var isSignedIn: Bool { userID != nil }
 
+    /// "apple" (the default) or "google": decides how the session is renewed.
+    static func saveProvider(_ provider: String) {
+        UserDefaults.standard.set(provider, forKey: "account.provider")
+    }
+    static var provider: String { UserDefaults.standard.string(forKey: "account.provider") ?? "apple" }
+
     static func clear() {
         let d = UserDefaults.standard
         d.removeObject(forKey: "account.name")
         d.removeObject(forKey: "account.email")
         d.removeObject(forKey: "account.userID")
+        d.removeObject(forKey: "account.provider")
+        GoogleAuth.signOut()
         for provider in cloudProviders {
             d.removeObject(forKey: cloudKey(provider))
         }
@@ -107,13 +115,16 @@ enum JunctionAPI {
                 return nil
             }
 
+            var wake: Date? = nil
+            if let bedtime_stop { wake = Self.parseISO(bedtime_stop) }
+
             return NightSleep(
                 day: day,
                 core: core,
                 deep: deepSec,
                 rem: remSec,
                 awake: awakeSec,
-                wake: bedtime_stop.flatMap(Self.parseISO)
+                wake: wake
             )
         }
 

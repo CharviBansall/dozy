@@ -2,7 +2,8 @@
 //  PaywallView.swift
 //  dozy
 //
-//  Full-app gate after the free trial / before subscription.
+//  "Keep your plan": the last step after onboarding, and the gate whenever
+//  there is no active subscription.
 //
 
 import StoreKit
@@ -10,165 +11,144 @@ import SwiftUI
 
 struct PaywallView: View {
     @EnvironmentObject private var subscriptions: SubscriptionManager
-    @State private var appeared = false
 
     var body: some View {
-        ZStack {
-            DozyBackground()
+        VStack(spacing: 14) {
+            GlowOrb(size: 84)
+                .padding(.top, 28)
+                .padding(.bottom, 8)
 
-            VStack(spacing: 0) {
-                Spacer()
+            Text("Keep your plan.")
+                .font(Theme.brand(38))
+                .foregroundStyle(Theme.text)
 
-                Text("Dozy")
-                    .font(Theme.serif(56))
-                    .foregroundStyle(.white)
-                    .opacity(appeared ? 1 : 0)
+            Text(hasTrial ? "Free for 3 days. Cancel anytime." : "Cancel anytime.")
+                .font(Theme.body(17))
+                .foregroundStyle(Theme.secondary)
 
-                Text("Unlock your sleep plan")
-                    .font(Theme.serif(20))
-                    .foregroundStyle(.white.opacity(0.75))
-                    .padding(.top, 6)
-                    .opacity(appeared ? 1 : 0)
+            CheckList(rows: [("Your payoff date and daily action", true),
+                             ("Morning summary on your Lock Screen", true),
+                             ("Oura, Garmin and Whoop sync", true)])
+                .padding(.top, 6)
 
-                GlowOrb(size: 130)
-                    .padding(.top, 40)
-                    .scaleEffect(appeared ? 1 : 0.88)
-                    .opacity(appeared ? 1 : 0)
-
-                planCard
-                    .padding(.top, 40)
-                    .padding(.horizontal, 28)
-                    .opacity(appeared ? 1 : 0)
-
-                if let errorMessage = subscriptions.errorMessage {
-                    Text(errorMessage)
-                        .font(Theme.body(13))
-                        .foregroundStyle(Theme.debtPink)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 36)
-                        .padding(.top, 14)
+            VStack(spacing: 10) {
+                if let yearly = subscriptions.yearly {
+                    planRow(id: SubscriptionManager.yearlyProductID,
+                            name: "Yearly",
+                            badge: subscriptions.yearlySavingsPercent.map { "SAVE \($0)%" },
+                            product: yearly, period: "year")
                 }
-
-                Spacer()
-
-                VStack(spacing: 14) {
-                    Button {
-                        Task { await subscriptions.purchase() }
-                    } label: {
-                        HStack(spacing: 10) {
-                            if subscriptions.isPurchasing {
-                                ProgressView()
-                                    .tint(.white)
-                            }
-                            Text(ctaTitle)
-                                .font(Theme.serif(18))
-                                .foregroundStyle(.white)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 18)
-                        .background(
-                            LinearGradient(
-                                colors: [
-                                    Color(red: 0.1, green: 0.45, blue: 1.0),
-                                    Color(red: 0.04, green: 0.30, blue: 0.95)
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                        .clipShape(Capsule())
-                    }
-                    .disabled(subscriptions.isPurchasing || subscriptions.product == nil)
-
-                    Button {
-                        Task { await subscriptions.restore() }
-                    } label: {
-                        Text("Restore Purchases")
-                            .font(Theme.body(15, weight: .medium))
-                            .foregroundStyle(.white.opacity(0.7))
-                    }
-                    .disabled(subscriptions.isPurchasing)
-
-                    #if DEBUG
-                    if subscriptions.product == nil {
-                        Button {
-                            subscriptions.unlockForLocalTesting()
-                        } label: {
-                            Text("DEBUG: Continue without StoreKit")
-                                .font(Theme.body(13, weight: .medium))
-                                .foregroundStyle(.white.opacity(0.55))
-                        }
-                        .padding(.top, 4)
-                    }
-                    #endif
-
-                    Text("Cancel anytime in Settings → Apple ID → Subscriptions.")
-                        .font(Theme.body(12))
-                        .foregroundStyle(.white.opacity(0.4))
-                        .multilineTextAlignment(.center)
+                if let monthly = subscriptions.monthly {
+                    planRow(id: SubscriptionManager.monthlyProductID,
+                            name: "Monthly",
+                            badge: nil,
+                            product: monthly, period: "month")
                 }
-                .padding(.horizontal, 40)
-                .padding(.bottom, 36)
             }
+
+            if let errorMessage = subscriptions.errorMessage {
+                Text(errorMessage)
+                    .font(Theme.body(13))
+                    .foregroundStyle(Theme.debtPink)
+                    .multilineTextAlignment(.center)
+            }
+
+            Spacer()
+
+            PrimaryButton(title: ctaTitle, isBusy: subscriptions.isPurchasing) {
+                Task { await subscriptions.purchase() }
+            }
+            .disabled(subscriptions.product == nil)
+            .opacity(subscriptions.product == nil ? 0.5 : 1)
+
+            Button {
+                Task { await subscriptions.restore() }
+            } label: {
+                Text("Restore Purchases")
+                    .font(Theme.body(15, weight: .medium))
+                    .foregroundStyle(Theme.cyan)
+            }
+            .disabled(subscriptions.isPurchasing)
+
+            #if DEBUG
+            if subscriptions.product == nil {
+                Button {
+                    subscriptions.unlockForLocalTesting()
+                } label: {
+                    Text("DEBUG: Continue without StoreKit")
+                        .font(Theme.body(13, weight: .medium))
+                        .foregroundStyle(Theme.secondary)
+                }
+            }
+            #endif
+
+            Text("Manage or cancel in Settings → Apple ID → Subscriptions.")
+                .font(Theme.body(12))
+                .foregroundStyle(Theme.secondary)
+                .multilineTextAlignment(.center)
         }
-        .preferredColorScheme(.dark)
+        .padding(.horizontal, 24)
+        .padding(.bottom, 24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Theme.background.ignoresSafeArea())
         .task {
             if subscriptions.product == nil {
                 await subscriptions.loadProducts()
             }
         }
-        .onAppear {
-            withAnimation(.easeOut(duration: 0.75)) { appeared = true }
-        }
+    }
+
+    private var hasTrial: Bool {
+        subscriptions.product?.subscription?.introductoryOffer != nil
     }
 
     private var ctaTitle: String {
-        if subscriptions.product?.subscription?.introductoryOffer != nil {
-            return "Start 3-day free trial"
-        }
-        return "Subscribe · \(subscriptions.priceText)/mo"
+        if hasTrial { return "Start 3-Day Free Trial" }
+        let yearlyChosen = subscriptions.product?.id == SubscriptionManager.yearlyProductID
+        return "Subscribe · \(subscriptions.priceText)/\(yearlyChosen ? "yr" : "mo")"
     }
 
-    private var planCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
+    /// One plan on sale. Tapping it selects it; the selected one has the cyan outline.
+    private func planRow(id: String, name: String, badge: String?, product: Product, period: String) -> some View {
+        let isSelected = subscriptions.product?.id == id
+        let trial = product.subscription?.introductoryOffer != nil
+        return Button {
+            subscriptions.selectedID = id
+        } label: {
             HStack {
-                Text("Dozy Premium")
-                    .font(Theme.serif(22))
-                    .foregroundStyle(.white)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 8) {
+                        Text(name)
+                            .font(Theme.body(17, weight: .semibold))
+                            .foregroundStyle(Theme.text)
+                        if let badge {
+                            Text(badge)
+                                .font(Theme.body(11, weight: .bold))
+                                .tracking(0.3)
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(Theme.cyan)
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                        }
+                    }
+                    Text(trial
+                         ? "3 days free, then \(product.displayPrice) per \(period)"
+                         : "\(product.displayPrice) per \(period)")
+                        .font(Theme.body(14))
+                        .foregroundStyle(Theme.secondary)
+                }
                 Spacer()
-                Text("Monthly")
-                    .font(Theme.body(13, weight: .medium))
-                    .foregroundStyle(Theme.cyan)
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 22))
+                    .foregroundStyle(isSelected ? Theme.cyan : Theme.secondary)
             }
-
-            Text(subscriptions.trialBadgeText)
-                .font(Theme.body(15))
-                .foregroundStyle(.white.opacity(0.75))
-
-            VStack(alignment: .leading, spacing: 10) {
-                benefitRow("Sleep debt from Apple Health")
-                benefitRow("Personalized nap windows")
-                benefitRow("Full access after a 3-day trial")
-            }
-            .padding(.top, 4)
+            .padding(16)
+            .background(Theme.card)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14)
+                .stroke(isSelected ? Theme.cyan : Color.clear, lineWidth: 2))
         }
-        .padding(22)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.06))
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
-        )
-    }
-
-    private func benefitRow(_ text: String) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(Theme.cyan)
-            Text(text)
-                .font(Theme.body(14))
-                .foregroundStyle(.white.opacity(0.85))
-        }
+        .buttonStyle(.plain)
     }
 }

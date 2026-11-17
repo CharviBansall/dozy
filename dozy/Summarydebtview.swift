@@ -26,10 +26,10 @@ struct SleepDebtView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
                         .font(Theme.serif(40))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.text)
                     Text(dateString)
                         .font(Theme.body(14))
-                        .foregroundStyle(.white.opacity(0.6))
+                        .foregroundStyle(Theme.secondary)
                 }
 
                 if vm.dailyDebt.contains(where: { $0.debt >= 60 }) {
@@ -38,7 +38,7 @@ struct SleepDebtView: View {
                     // A blank 14-day chart looks broken; say what it means instead.
                     HighlightRow(
                         icon: vm.nightsInWindow == 0 ? "moon.zzz" : "checkmark.circle.fill",
-                        tint: vm.nightsInWindow == 0 ? .white.opacity(0.5) : Theme.cyan,
+                        tint: vm.nightsInWindow == 0 ? Theme.secondary : Theme.cyan,
                         title: vm.nightsInWindow == 0 ? "No sleep data yet" : "No short nights in the last 14 days",
                         detail: vm.nightsInWindow == 0
                             ? "Wear your watch or tracker to bed and your nights will appear here."
@@ -48,11 +48,11 @@ struct SleepDebtView: View {
 
                 Text("Highlights")
                     .font(Theme.serif(20))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.text)
 
                 if highlights.isEmpty {
                     HighlightRow(icon: "moon.zzz",
-                                 tint: .white.opacity(0.5),
+                                 tint: Theme.secondary,
                                  title: "Not enough sleep yet",
                                  detail: "Track a few nights and your highlights will appear here.")
                 } else {
@@ -67,7 +67,7 @@ struct SleepDebtView: View {
                 if showsDetailRows {
                     Text("Behind the number")
                         .font(Theme.serif(20))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.text)
                         .padding(.top, 4)
                     BehindTheNumberRows()
                 }
@@ -78,7 +78,7 @@ struct SleepDebtView: View {
         }
         // 1pt keeps scrolled content from sliding under the status bar.
         .padding(.top, 1)
-        .background(Color(red: 0.07, green: 0.07, blue: 0.09).ignoresSafeArea())
+        .background(Theme.background.ignoresSafeArea())
     }
 
     // MARK: - Chart with tap-to-read
@@ -98,9 +98,9 @@ struct SleepDebtView: View {
             if let sel = selectedEntry {
                 HStack(spacing: 6) {
                     Text(fullDate(sel.day))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.text)
                     Text("·")
-                        .foregroundStyle(.white.opacity(0.4))
+                        .foregroundStyle(Theme.secondary)
                     Text(sel.debt < 60 ? "no debt" : "\(short(sel.debt)) behind")
                         .foregroundStyle(sel.debt < 60 ? Theme.cyan : debtColor)
                 }
@@ -108,7 +108,7 @@ struct SleepDebtView: View {
             } else {
                 Text("Touch a bar to see that day")
                     .font(Theme.body(13))
-                    .foregroundStyle(.white.opacity(0.4))
+                    .foregroundStyle(Theme.secondary)
             }
 
             Chart(vm.dailyDebt, id: \.day) { item in
@@ -125,13 +125,13 @@ struct SleepDebtView: View {
             }
             .chartYAxis {
                 AxisMarks(position: .trailing) { _ in
-                    AxisGridLine().foregroundStyle(.white.opacity(0.15))
-                    AxisValueLabel().foregroundStyle(.white.opacity(0.5))
+                    AxisGridLine().foregroundStyle(Theme.line)
+                    AxisValueLabel().foregroundStyle(Theme.secondary)
                 }
             }
             .chartXAxis {
                 AxisMarks(values: .stride(by: .day)) { _ in
-                    AxisGridLine().foregroundStyle(.white.opacity(0.08))
+                    AxisGridLine().foregroundStyle(Theme.line)
                 }
             }
             .chartOverlay { proxy in
@@ -256,17 +256,17 @@ struct HighlightRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
                     .font(Theme.serif(16))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.text)
                 Text(detail)
                     .font(Theme.body(14))
-                    .foregroundStyle(.white.opacity(0.7))
+                    .foregroundStyle(Theme.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 0)
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.06))
+        .background(Theme.card)
         .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 }

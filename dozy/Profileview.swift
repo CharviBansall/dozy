@@ -27,7 +27,7 @@ struct ProfileView: View {
         return f.string(from: .now)
     }
 
-    private let accent = Color(red: 0.30, green: 0.80, blue: 0.85)
+    private let accent = Theme.cyan
 
     var body: some View {
         ScrollView {
@@ -41,21 +41,21 @@ struct ProfileView: View {
                 // Notifications
                 Text("Notifications")
                     .font(Theme.serif(20))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.text)
 
                 Toggle(isOn: $notificationsEnabled) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Nap alarms")
                             .font(Theme.serif(16))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Theme.text)
                         Text("Wake you when a nap is complete.")
                             .font(Theme.body(13))
-                            .foregroundStyle(.white.opacity(0.6))
+                            .foregroundStyle(Theme.secondary)
                     }
                 }
                 .tint(accent)
                 .padding(18)
-                .background(Color.white.opacity(0.06))
+                .background(Theme.card)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
                 .onChange(of: notificationsEnabled) { _, newValue in
                     if newValue { requestNotifications() }
@@ -66,15 +66,15 @@ struct ProfileView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Morning summary")
                             .font(Theme.serif(16))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Theme.text)
                         Text("What last night did to your debt, and today's one thing.")
                             .font(Theme.body(13))
-                            .foregroundStyle(.white.opacity(0.6))
+                            .foregroundStyle(Theme.secondary)
                     }
                 }
                 .tint(accent)
                 .padding(18)
-                .background(Color.white.opacity(0.06))
+                .background(Theme.card)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
                 .onChange(of: morningSummaryOn) { _, newValue in
                     MorningBrief.isEnabled = newValue
@@ -87,7 +87,7 @@ struct ProfileView: View {
                 // Data sources
                 Text("Data")
                     .font(Theme.serif(20))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.text)
 
                 VStack(spacing: 10) {
                     sourceRow(
@@ -133,14 +133,14 @@ struct ProfileView: View {
 
                 Text("Oura and Garmin often already appear via Apple Health. Connect here if you want a direct cloud sync.")
                     .font(Theme.body(13))
-                    .foregroundStyle(.white.opacity(0.5))
+                    .foregroundStyle(Theme.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.horizontal, 20).padding(.top, 12)
         }
         // 1pt keeps scrolled content from sliding under the status bar.
         .padding(.top, 1)
-        .background(Color(red: 0.07, green: 0.07, blue: 0.09).ignoresSafeArea())
+        .background(Theme.background.ignoresSafeArea())
         .onAppear {
             refreshNotificationStatus()
             ouraConnected = Account.isCloudSourceConnected("oura")
@@ -172,10 +172,10 @@ struct ProfileView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
                         .font(Theme.serif(16))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.text)
                     Text(subtitle)
                         .font(Theme.body(13))
-                        .foregroundStyle(.white.opacity(0.6))
+                        .foregroundStyle(Theme.secondary)
                 }
                 Spacer()
                 if isBusy {
@@ -189,11 +189,11 @@ struct ProfileView: View {
                         .foregroundStyle(accent)
                 } else {
                     Image(systemName: "circle")
-                        .foregroundStyle(.white.opacity(0.3))
+                        .foregroundStyle(Theme.secondary)
                 }
             }
             .padding(18)
-            .background(Color.white.opacity(0.06))
+            .background(Theme.card)
             .clipShape(RoundedRectangle(cornerRadius: 16))
         }
         .buttonStyle(.plain)
@@ -216,22 +216,22 @@ struct ProfileView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(Account.name ?? "Welcome")
                     .font(Theme.serif(20))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.text)
                 if let email = Account.email {
                     Text(email)
                         .font(Theme.body(14))
-                        .foregroundStyle(.white.opacity(0.6))
+                        .foregroundStyle(Theme.secondary)
                 } else {
-                    Text("Signed in with Apple")
+                    Text(Account.provider == "google" ? "Signed in with Google" : "Signed in with Apple")
                         .font(Theme.body(14))
-                        .foregroundStyle(.white.opacity(0.6))
+                        .foregroundStyle(Theme.secondary)
                 }
             }
             Spacer()
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.06))
+        .background(Theme.card)
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
@@ -241,23 +241,23 @@ struct ProfileView: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Subscription")
                 .font(Theme.serif(20))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.text)
 
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(subscriptions.isEntitled ? "Dozy Premium" : "Inactive")
                             .font(Theme.serif(17))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Theme.text)
                         Text(subscriptions.statusDetailText)
                             .font(Theme.body(13))
-                            .foregroundStyle(.white.opacity(0.6))
+                            .foregroundStyle(Theme.secondary)
                     }
                     Spacer()
                     Image(systemName: subscriptions.isEntitled
                           ? "checkmark.seal.fill"
                           : "exclamationmark.circle")
-                        .foregroundStyle(subscriptions.isEntitled ? accent : .white.opacity(0.35))
+                        .foregroundStyle(subscriptions.isEntitled ? accent : Theme.secondary)
                 }
 
                 Button {
@@ -269,15 +269,15 @@ struct ProfileView: View {
                 } label: {
                     HStack {
                         if isRestoring || subscriptions.isPurchasing {
-                            ProgressView().tint(.white)
+                            ProgressView().tint(Theme.secondary)
                         }
                         Text("Restore Purchases")
                             .font(Theme.body(14, weight: .medium))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Theme.text)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(Color.white.opacity(0.08))
+                    .background(Theme.track)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
                 .disabled(isRestoring || subscriptions.isPurchasing)
@@ -289,7 +289,7 @@ struct ProfileView: View {
                 }
             }
             .padding(18)
-            .background(Color.white.opacity(0.06))
+            .background(Theme.card)
             .clipShape(RoundedRectangle(cornerRadius: 16))
         }
     }
@@ -322,7 +322,7 @@ struct ProfileView: View {
         do {
             return try await JunctionAPI.createLinkURL(clientUserId: clientUserId, provider: provider)
         } catch where JunctionAPI.isSignInRequired(error) {
-            try await AppSession.renewWithApple()
+            try await AppSession.renew()
             cloudNeedsSignIn = false
             return try await JunctionAPI.createLinkURL(clientUserId: clientUserId, provider: provider)
         }
@@ -334,10 +334,10 @@ struct ProfileView: View {
 
         Task {
             do {
-                try await AppSession.renewWithApple()
+                try await AppSession.renew()
                 await sleepVM.load()
             } catch {
-                if !AppSession.isAppleSheetCancelled(error) {
+                if !AppSession.isSignInCancelled(error) {
                     connectError = error.localizedDescription
                 }
             }
@@ -383,7 +383,7 @@ struct ProfileView: View {
                 await MainActor.run {
                     connectingProvider = nil
                     cloudNeedsSignIn = AppSession.needsSignIn
-                    if !AppSession.isAppleSheetCancelled(error) {
+                    if !AppSession.isSignInCancelled(error) {
                         connectError = error.localizedDescription
                     }
                 }
