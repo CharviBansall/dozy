@@ -28,9 +28,6 @@ struct ProfileView: View {
     @State private var isDeleting = false
     @State private var accountError: String? = nil
     @State private var exportFile: URL? = nil
-    #if DEBUG
-    @State private var demoDataOn = DemoData.isOn
-    #endif
 
     private let accent = Theme.cyan
     private static let privacyURL = URL(string: "https://www.appdozy.com/privacy")!
@@ -120,14 +117,6 @@ struct ProfileView: View {
                     divider
                     Link(destination: Self.privacyURL) { linkRow("Privacy") }
                         .buttonStyle(.plain)
-                    #if DEBUG
-                    divider
-                    toggleRow("Demo Data (debug only)", isOn: $demoDataOn)
-                        .onChange(of: demoDataOn) { _, newValue in
-                            DemoData.isOn = newValue
-                            Task { await sleepVM.load() }
-                        }
-                    #endif
                 }
 
                 sectionTitle("Account")

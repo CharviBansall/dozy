@@ -118,33 +118,22 @@ final class SleepViewModel: ObservableObject {
         defer { isLoading = false }
 
         do {
+            try await store.requestAuthorization()
+
             // The plan is built on the last 30 days. Older nights are only read so
             // Progress can show how the debt has moved over time.
             let end = Date()
             let start = Calendar.current.date(byAdding: .day, value: -30, to: end)!
             let historyStart = Calendar.current.date(byAdding: .day, value: -Self.historyDays, to: end)!
+            let samples = try await store.fetchSleepSamples(start: historyStart, end: end)
+
+            var allNights = analyzer.nights(from: samples)
             let recentCutoff = Calendar.current.startOfDay(for: start)
-
-            var usingDemoData = false
-            #if DEBUG
-            usingDemoData = DemoData.isOn
-            #endif
-
-            var allNights: [NightSleep] = []
-            if usingDemoData {
-                #if DEBUG
-                allNights = DemoData.nights()
-                #endif
-            } else {
-                try await store.requestAuthorization()
-                let samples = try await store.fetchSleepSamples(start: historyStart, end: end)
-                allNights = analyzer.nights(from: samples)
-            }
             var nights = allNights.filter { $0.day >= recentCutoff }
 
             // Merge Junction cloud sleep (Oura / Garmin / Whoop) for days
             // HealthKit doesn't already cover. HealthKit wins on the same day.
-            if !usingDemoData, Account.hasCloudSourceConnected, let clientUserId = Account.userID {
+            if Account.hasCloudSourceConnected, let clientUserId = Account.userID {
                 do {
                     let cloud = try await JunctionAPI.fetchSleep(
                         clientUserId: clientUserId,
@@ -216,13 +205,7 @@ final class SleepViewModel: ObservableObject {
             self.napEarliest = nap.earliest
             self.napLatest = nap.latest
             self.lastUpdated = Date()
-            if usingDemoData {
-                #if DEBUG
-                self.signals = DemoData.signals
-                #endif
-            } else {
-                self.signals = await loadSignals(nights: nights)
-            }
+            self.signals = await loadSignals(nights: nights)
             // Keep the watch on the same plan as the phone.
             PhoneConnector.shared.push(from: self)
         } catch {
