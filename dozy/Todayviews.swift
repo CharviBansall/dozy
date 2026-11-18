@@ -158,7 +158,7 @@ struct LastNightCard: View {
     private var tint: Color {
         switch result {
         case .paidBack: return Theme.cyan
-        case .added:    return Theme.debtPink
+        case .added:    return Theme.debtRed
         case .steady:   return Theme.accentBlue
         }
     }

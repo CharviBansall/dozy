@@ -22,6 +22,8 @@ struct NightSleep: Identifiable {
     /// The moment this sleep ended, when the source reports it. Used to learn
     /// the usual wake-up time for the bedtime recommendation.
     var wake: Date? = nil
+    /// The moment this sleep began, when it came from Apple Health.
+    var start: Date? = nil
 
     /// Total time actually asleep (excludes awake and inBed).
     var totalAsleep: TimeInterval { core + deep + rem }

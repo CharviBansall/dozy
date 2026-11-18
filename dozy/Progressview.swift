@@ -73,7 +73,7 @@ struct ProgressScreen: View {
                     SleepDebtView()
                 } label: {
                     VStack(alignment: .leading, spacing: 10) {
-                        CardHeader(icon: "flame.fill", title: "Sleep Debt", color: Theme.debtPink)
+                        CardHeader(icon: "flame.fill", title: "Sleep Debt", color: Theme.debtRed)
                         Text(weekSummary)
                             .font(Theme.body(17, weight: .semibold))
                             .foregroundStyle(Theme.text)
@@ -91,6 +91,7 @@ struct ProgressScreen: View {
 
                 wakeCard
                 stageCards
+                signalsCard
             }
             .padding(.horizontal, 16)
             .padding(.top, 12)
@@ -208,10 +209,10 @@ struct ProgressScreen: View {
 
     private func barColor(_ bar: Bar, selected: Bar?, last: Bar?) -> Color {
         if let selected {
-            return bar.id == selected.id ? Theme.debtPink : Theme.debtPink.opacity(0.3)
+            return bar.id == selected.id ? Theme.debtRed : Theme.debtRed.opacity(0.3)
         }
         // The newest bar is the one that matters today; the rest are history.
-        return bar.id == last?.id ? Theme.debtPink : Theme.debtPink.opacity(0.45)
+        return bar.id == last?.id ? Theme.debtRed : Theme.debtRed.opacity(0.45)
     }
 
     private func axisLabel(_ minutes: Double) -> String {
@@ -329,6 +330,64 @@ struct ProgressScreen: View {
             }
         }
         .healthCard()
+    }
+
+    // MARK: - Overnight signals
+
+    @ViewBuilder
+    private var signalsCard: some View {
+        if let signals = vm.signals {
+            VStack(alignment: .leading, spacing: 12) {
+                CardHeader(icon: "heart.fill", title: "Overnight Signals",
+                           color: Theme.debtRed, showsChevron: false)
+                if let heartRate = signals.heartRate {
+                    signalRow("Sleeping heart rate", heartRate, unit: "bpm", decimals: 0)
+                }
+                if let hrv = signals.hrv {
+                    signalRow("Heart rate variability", hrv, unit: "ms", decimals: 0)
+                }
+                if let breathing = signals.breathing {
+                    signalRow("Breathing rate", breathing, unit: "br/min", decimals: 1)
+                }
+                Text("Measured by your watch while you slept. A lower heart rate and higher variability than your usual tend to go with a more restful night.")
+                    .font(Theme.body(13))
+                    .foregroundStyle(Theme.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .healthCard()
+        }
+    }
+
+    private func signalRow(_ title: String, _ signal: SleepViewModel.Signal, unit: String,
+                           decimals: Int) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(Theme.body(15))
+                    .foregroundStyle(Theme.text)
+                Text(signalNote(signal, unit: unit, decimals: decimals))
+                    .font(Theme.body(13))
+                    .foregroundStyle(Theme.secondary)
+            }
+            Spacer(minLength: 12)
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                Text(String(format: "%.\(decimals)f", signal.lastNight))
+                    .font(Theme.number(22))
+                    .foregroundStyle(Theme.text)
+                Text(unit)
+                    .font(Theme.body(12, weight: .semibold))
+                    .foregroundStyle(Theme.secondary)
+            }
+        }
+    }
+
+    private func signalNote(_ signal: SleepViewModel.Signal, unit: String, decimals: Int) -> String {
+        guard let usual = signal.usual else { return "Learning your usual" }
+        let difference = signal.lastNight - usual
+        let threshold = decimals == 0 ? 1.0 : 0.3
+        if abs(difference) < threshold { return "About your usual" }
+        let amount = String(format: "%.\(decimals)f", abs(difference))
+        return "\(amount) \(unit) \(difference > 0 ? "above" : "below") your usual"
     }
 
     /// Compares last night with the person's own average, not a universal target.

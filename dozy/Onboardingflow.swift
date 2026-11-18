@@ -273,7 +273,7 @@ struct OnboardingFlow: View {
                     .font(Theme.body(20))
                     .foregroundStyle(Theme.secondary)
                 if vm.totalDebt >= 60 {
-                    DurationText(seconds: vm.totalDebt, size: 60, color: Theme.debtPink)
+                    DurationText(seconds: vm.totalDebt, size: 60, color: Theme.debtRed)
                 }
                 bodyText(resultDetail)
                     .multilineTextAlignment(.center)
@@ -289,7 +289,7 @@ struct OnboardingFlow: View {
                 Text("You owe")
                     .font(Theme.body(20))
                     .foregroundStyle(Theme.secondary)
-                DurationText(seconds: 100 * 60, size: 60, color: Theme.debtPink)
+                DurationText(seconds: 100 * 60, size: 60, color: Theme.debtRed)
                 bodyText("This is an example. Dozy didn’t find any sleep in Apple Health yet, so your own number appears after your first tracked night.")
                     .multilineTextAlignment(.center)
                 resultChart(Self.exampleNights)
@@ -324,7 +324,7 @@ struct OnboardingFlow: View {
             HStack(alignment: .bottom, spacing: 6) {
                 ForEach(Array(nights.enumerated()), id: \.offset) { _, debt in
                     RoundedRectangle(cornerRadius: 3)
-                        .fill(Theme.debtPink.opacity(debt / peak > 0.7 ? 1 : 0.45))
+                        .fill(Theme.debtRed.opacity(debt / peak > 0.7 ? 1 : 0.45))
                         .frame(height: max(4, 90 * CGFloat(debt / peak)))
                         .frame(maxWidth: .infinity)
                 }
@@ -523,7 +523,7 @@ struct SignUpWithAppleButton: View {
             if let errorMessage {
                 Text(errorMessage)
                     .font(Theme.body(13))
-                    .foregroundStyle(Theme.debtPink)
+                    .foregroundStyle(Theme.debtRed)
                     .multilineTextAlignment(.center)
             }
         }

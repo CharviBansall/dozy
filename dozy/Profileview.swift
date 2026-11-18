@@ -67,7 +67,7 @@ struct ProfileView: View {
                     }
                 }
                 if let connectError {
-                    footnote(connectError, color: Theme.debtPink)
+                    footnote(connectError, color: Theme.debtRed)
                 } else {
                     footnote("Trackers often reach Dozy through Apple Health already. Connect one here for a direct sync.")
                 }
@@ -128,7 +128,7 @@ struct ProfileView: View {
                     divider
                     Button { confirmingDelete = true } label: {
                         HStack {
-                            actionRow("Delete Account", color: Theme.debtPink)
+                            actionRow("Delete Account", color: Theme.debtRed)
                             if isDeleting { ProgressView().tint(Theme.secondary).padding(.trailing, 16) }
                         }
                     }
@@ -136,7 +136,7 @@ struct ProfileView: View {
                     .disabled(isDeleting)
                 }
                 if let accountError {
-                    footnote(accountError, color: Theme.debtPink)
+                    footnote(accountError, color: Theme.debtRed)
                 } else {
                     footnote("Deleting your account disconnects your trackers and erases the sleep data Dozy’s server holds. Apple Health is not affected.")
                 }
@@ -367,7 +367,7 @@ struct ProfileView: View {
                 if let errorMessage = subscriptions.errorMessage {
                     Text(errorMessage)
                         .font(Theme.body(12))
-                        .foregroundStyle(Theme.debtPink)
+                        .foregroundStyle(Theme.debtRed)
                 }
             }
             .padding(18)

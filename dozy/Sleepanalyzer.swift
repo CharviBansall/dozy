@@ -97,7 +97,7 @@ struct SleepAnalyzer {
             // Attribute to the wake-up day (end of the last interval).
             let wakeDay = calendar.startOfDay(for: group.last!.end)
             return NightSleep(day: wakeDay, core: core, deep: deep, rem: rem, awake: awake,
-                              wake: group.last!.end)
+                              wake: group.last!.end, start: group.first!.start)
         }
     }
 

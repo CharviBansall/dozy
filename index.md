@@ -10,7 +10,8 @@ The same policy is published at <https://www.appdozy.com/privacy>.
 
 ## The short version
 
-- Sleep data from **Apple Health stays on your device**. Dozy never uploads it.
+- Sleep and heart data from **Apple Health stays on your device**. Dozy never
+  uploads it.
 - Signing in sends a sign-in token from Apple or Google to our server, so we
   can confirm it is you. We do not keep a database of accounts.
 - If you choose to connect **Oura or Garmin**, your sleep summaries from that
@@ -24,6 +25,10 @@ With your permission, Dozy reads **Sleep Analysis** from Apple Health: your
 recorded sleep sessions and sleep stages (core, deep, REM). Dozy uses it to
 work out your sleep need, your sleep debt, tonight's bedtime, and whether a nap
 is worth taking.
+
+With your permission, Dozy also reads your **heart rate, heart rate variability
+and breathing rate** for the hours you were asleep. It shows them beside your
+deep and REM sleep and compares them with your own usual.
 
 With your permission, Dozy also writes to Apple Health: when you finish a nap
 with Dozy's nap timer, the nap is saved as sleep so it counts toward your debt.

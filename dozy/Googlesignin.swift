@@ -158,7 +158,7 @@ struct GoogleSignInRow: View {
             if let errorMessage {
                 Text(errorMessage)
                     .font(Theme.body(13))
-                    .foregroundStyle(Theme.debtPink)
+                    .foregroundStyle(Theme.debtRed)
                     .multilineTextAlignment(.center)
             }
         }

@@ -17,7 +17,7 @@ struct HowDozyWorksView: View {
                      title: "Your sleep need",
                      text: "Dozy looks at how long you slept on your longer nights over the last 30 days, because your average is already dragged down by short nights. Your need is never set below 7 hours or above 10. Until Dozy has five nights, it uses 8 hours.")
 
-                step(icon: "flame.fill", color: Theme.debtPink,
+                step(icon: "flame.fill", color: Theme.debtRed,
                      title: "Your sleep debt",
                      text: "Dozy keeps a running balance over the last 14 days. A night shorter than your need adds the difference. A day with no recorded sleep is left out, not counted against you.")
 
@@ -32,6 +32,10 @@ struct HowDozyWorksView: View {
                 step(icon: "bed.double.fill", color: Theme.accentBlue,
                      title: "Tonight’s bedtime",
                      text: "Dozy counts back from your wake time: your sleep need, plus up to an hour of payback, plus 15 minutes to fall asleep.")
+
+                step(icon: "heart.fill", color: Theme.debtRed,
+                     title: "Deep, REM and your heart",
+                     text: "Deep and REM sleep are worked out by your watch or tracker, from your heart rate, movement and breathing. Dozy reads them as they are and compares them with your own usual. It also shows your sleeping heart rate, heart rate variability and breathing rate, so you can see the signals behind a good or a rough night.")
 
                 Text("Dozy is a planning tool, not medical advice. If you are often exhausted despite sleeping enough, talk to a doctor.")
                     .font(Theme.body(13))

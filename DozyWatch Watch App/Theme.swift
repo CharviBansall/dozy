@@ -32,5 +32,5 @@ enum Theme {
     static let cyan       = Color(red: 0.30, green: 0.80, blue: 0.85)
     static let accentBlue = Color(red: 0.25, green: 0.58, blue: 1.00)
     static let violet     = Color(red: 0.62, green: 0.53, blue: 0.98)
-    static let debtPink   = Color(red: 0.95, green: 0.35, blue: 0.55)
+    static let debtRed    = Color(red: 1.00, green: 0.27, blue: 0.23)
 }

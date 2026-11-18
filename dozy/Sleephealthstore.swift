@@ -28,7 +28,45 @@ final class SleepHealthStore {
     func requestAuthorization() async throws {
         guard isAvailable else { throw SleepError.healthDataUnavailable }
         let sleepType = HKCategoryType(.sleepAnalysis)
-        try await store.requestAuthorization(toShare: [sleepType], read: [sleepType])
+        var read: Set<HKObjectType> = [sleepType]
+        read.formUnion(Self.signalTypes)
+        try await store.requestAuthorization(toShare: [sleepType], read: read)
+    }
+
+    // MARK: - Overnight signals
+
+    /// What a watch measures while you sleep, besides the stages themselves.
+    private static let signalTypes: [HKQuantityType] = [
+        HKQuantityType(.heartRate),
+        HKQuantityType(.heartRateVariabilitySDNN),
+        HKQuantityType(.respiratoryRate),
+    ]
+
+    /// Average heart rate (bpm), heart rate variability (ms) and breathing rate
+    /// (breaths/min) between two moments. A value is nil when Health has nothing for
+    /// that window, which is also what a declined permission looks like.
+    func overnightSignals(start: Date, end: Date) async -> (heartRate: Double?, hrv: Double?, breathing: Double?) {
+        let perMinute = HKUnit.count().unitDivided(by: .minute())
+        async let heartRate = average(.heartRate, unit: perMinute, start: start, end: end)
+        async let hrv = average(.heartRateVariabilitySDNN, unit: .secondUnit(with: .milli), start: start, end: end)
+        async let breathing = average(.respiratoryRate, unit: perMinute, start: start, end: end)
+        return await (heartRate, hrv, breathing)
+    }
+
+    private func average(_ identifier: HKQuantityTypeIdentifier, unit: HKUnit,
+                         start: Date, end: Date) async -> Double? {
+        guard isAvailable, end > start else { return nil }
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: [])
+        return await withCheckedContinuation { continuation in
+            let query = HKStatisticsQuery(
+                quantityType: HKQuantityType(identifier),
+                quantitySamplePredicate: predicate,
+                options: .discreteAverage
+            ) { _, statistics, _ in
+                continuation.resume(returning: statistics?.averageQuantity()?.doubleValue(for: unit))
+            }
+            store.execute(query)
+        }
     }
 
     /// Log a completed nap as asleep time so it counts toward recovery and

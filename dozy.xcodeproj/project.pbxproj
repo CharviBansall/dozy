@@ -382,8 +382,8 @@
 				INFOPLIST_FILE = dozy/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Dozy;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "dozy reads your sleep data to calculate sleep debt and recommend the best time to nap";
-				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "dozy logs your completed naps so they count toward your sleep recovery";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Dozy reads your sleep, and your heart rate, heart rate variability and breathing rate while you sleep, to work out your sleep debt and plan your day.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Dozy logs the naps you finish so they count toward your sleep debt.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -426,8 +426,8 @@
 				INFOPLIST_FILE = dozy/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Dozy;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "dozy reads your sleep data to calculate sleep debt and recommend the best time to nap";
-				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "dozy logs your completed naps so they count toward your sleep recovery";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Dozy reads your sleep, and your heart rate, heart rate variability and breathing rate while you sleep, to work out your sleep debt and plan your day.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Dozy logs the naps you finish so they count toward your sleep debt.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

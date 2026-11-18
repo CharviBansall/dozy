@@ -104,7 +104,7 @@ struct SummaryView: View {
                 )
 
                 VStack(alignment: .leading, spacing: 8) {
-                    legend("Debt", SleepViewModel.duration(vm.totalDebt), Theme.debtPink)
+                    legend("Debt", SleepViewModel.duration(vm.totalDebt), Theme.debtRed)
                     legend("Nap", SleepViewModel.duration(vm.napLength), Theme.cyan)
                     legend("Deep + REM", "\(vm.restorativeDisplay)%", Theme.violet)
                 }
@@ -159,7 +159,7 @@ struct DebtCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            CardHeader(icon: "moon.fill", title: "Extra Sleep Tonight", color: Theme.debtPink, trailing: time)
+            CardHeader(icon: "moon.fill", title: "Extra Sleep Tonight", color: Theme.debtRed, trailing: time)
 
             HStack(alignment: .bottom, spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -184,7 +184,7 @@ struct DebtCard: View {
                     HStack(alignment: .bottom, spacing: 3) {
                         ForEach(vm.ledger) { day in
                             RoundedRectangle(cornerRadius: 2)
-                                .fill(day.day == vm.ledger.last?.day ? Theme.debtPink : Theme.track)
+                                .fill(day.day == vm.ledger.last?.day ? Theme.debtRed : Theme.track)
                                 .frame(width: 4, height: max(3, 36 * CGFloat(day.balance / maxBalance)))
                         }
                     }
@@ -255,7 +255,7 @@ struct ProgressRings: View {
     var body: some View {
         let step = (lineWidth + 4) * 2
         ZStack {
-            ring(progress: debt,        color: Theme.debtPink, size: diameter,            delay: 0)
+            ring(progress: debt,        color: Theme.debtRed, size: diameter,            delay: 0)
             ring(progress: nap,         color: Theme.cyan,     size: diameter - step,     delay: 0.15)
             ring(progress: restorative, color: Theme.violet,   size: diameter - 2 * step, delay: 0.3)
         }
@@ -305,7 +305,7 @@ struct RingsInfoSheet: View {
                 .padding(.bottom, 4)
 
                 ringBox(
-                    color: Theme.debtPink,
+                    color: Theme.debtRed,
                     title: "Sleep Debt",
                     body: "How much sleep you've missed versus what your body needs, added up over the last two weeks. This ring fills as debt grows — an emptier ring is better."
                 )

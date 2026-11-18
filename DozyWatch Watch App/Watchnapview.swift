@@ -120,7 +120,7 @@ struct WatchNapView: View {
     }
 
     private func figure(_ text: String) -> some View {
-        Text(text).font(Theme.number(22)).foregroundStyle(Theme.debtPink)
+        Text(text).font(Theme.number(22)).foregroundStyle(Theme.debtRed)
     }
 
     private func unit(_ text: String) -> some View {

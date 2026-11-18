@@ -43,6 +43,9 @@ final class SleepViewModel: ObservableObject {
     @Published var debtHistory: [DebtPoint] = []
     /// Deep and REM for the most recent nights that have stages, oldest first.
     @Published var stageHistory: [StagePoint] = []
+    /// Heart rate, heart rate variability and breathing during last night's sleep,
+    /// each beside the average of the nights before. Nil until Health has some.
+    @Published var signals: OvernightSignals? = nil
     /// Set after a nap finishes, so the Nap screen can show what it paid back.
     @Published var napPayback: NapPayback? = nil
 
@@ -63,6 +66,20 @@ final class SleepViewModel: ObservableObject {
         let day: Date
         let deep: TimeInterval
         let rem: TimeInterval
+    }
+
+    /// One overnight measure: last night, and the person's own usual.
+    struct Signal {
+        let lastNight: Double
+        /// Average over the earlier nights. Nil until three of them have a reading.
+        let usual: Double?
+    }
+
+    struct OvernightSignals {
+        let heartRate: Signal?
+        let hrv: Signal?
+        let breathing: Signal?
+        var isEmpty: Bool { heartRate == nil && hrv == nil && breathing == nil }
     }
 
     static let historyDays = 180
@@ -188,11 +205,44 @@ final class SleepViewModel: ObservableObject {
             self.napEarliest = nap.earliest
             self.napLatest = nap.latest
             self.lastUpdated = Date()
+            self.signals = await loadSignals(nights: nights)
             // Keep the watch on the same plan as the phone.
             PhoneConnector.shared.push(from: self)
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    // MARK: - Overnight signals
+
+    /// Reads heart rate, HRV and breathing for the hours of each recent night that
+    /// came from Apple Health, and sets last night against the nights before it.
+    private func loadSignals(nights: [NightSleep]) async -> OvernightSignals? {
+        let recent = nights
+            .filter { $0.totalAsleep >= 2 * 3600 && $0.start != nil && $0.wake != nil }
+            .sorted { $0.day > $1.day }
+            .prefix(15)
+        guard let latest = recent.first, let start = latest.start, let wake = latest.wake else { return nil }
+
+        let last = await store.overnightSignals(start: start, end: wake)
+        var heartRates: [Double] = [], hrvs: [Double] = [], breaths: [Double] = []
+        for night in recent.dropFirst() {
+            guard let start = night.start, let wake = night.wake else { continue }
+            let values = await store.overnightSignals(start: start, end: wake)
+            if let value = values.heartRate { heartRates.append(value) }
+            if let value = values.hrv { hrvs.append(value) }
+            if let value = values.breathing { breaths.append(value) }
+        }
+
+        func signal(_ value: Double?, _ earlier: [Double]) -> Signal? {
+            guard let value else { return nil }
+            let usual = earlier.count >= 3 ? earlier.reduce(0, +) / Double(earlier.count) : nil
+            return Signal(lastNight: value, usual: usual)
+        }
+        let result = OvernightSignals(heartRate: signal(last.heartRate, heartRates),
+                                      hrv: signal(last.hrv, hrvs),
+                                      breathing: signal(last.breathing, breaths))
+        return result.isEmpty ? nil : result
     }
 
     // MARK: - History and export

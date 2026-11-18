@@ -82,8 +82,8 @@ enum Theme {
     static let accentBlue = Color(dynamic(light: (0.05, 0.42, 0.95), dark: (0.25, 0.58, 1.00)))
     /// The third data colour: deep + REM.
     static let violet     = Color(dynamic(light: (0.45, 0.35, 0.90), dark: (0.62, 0.53, 0.98)))
-    /// Debt, shortfalls and errors. The only warm colour in the app.
-    static let debtPink   = Color(dynamic(light: (0.86, 0.20, 0.42), dark: (0.95, 0.35, 0.55)))
+    /// Debt, shortfalls and errors: the red of the heart in Apple Health.
+    static let debtRed    = Color(dynamic(light: (1.00, 0.23, 0.19), dark: (1.00, 0.27, 0.23)))
     /// Icons that are only labels, not states.
     static let iconNeutral = secondary
 }

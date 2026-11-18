@@ -83,7 +83,7 @@ struct SleepDebtView: View {
 
     // MARK: - Chart with tap-to-read
 
-    private var debtColor: Color { Theme.debtPink }
+    private var debtColor: Color { Theme.debtRed }
 
     private var selectedEntry: (day: Date, debt: TimeInterval)? {
         guard let selectedDay else { return nil }
@@ -174,7 +174,7 @@ struct SleepDebtView: View {
 
         var result: [Highlight] = []
         let green = Theme.cyan          // good news uses the accent
-        let red = Theme.debtPink
+        let red = Theme.debtRed
         let blue = Theme.accentBlue
 
         if let best = days.min(by: { $0.debt < $1.debt }) {
