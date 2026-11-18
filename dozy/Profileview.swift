@@ -59,10 +59,12 @@ struct ProfileView: View {
                     sourceRow(title: "Garmin", connected: garminConnected,
                               isBusy: connectingProvider == "garmin",
                               action: cloudAction("garmin", connected: garminConnected))
-                    divider
-                    sourceRow(title: "Whoop", connected: whoopConnected,
-                              isBusy: connectingProvider == "whoop_v2",
-                              action: cloudAction("whoop_v2", connected: whoopConnected))
+                    if Account.isWhoopAvailable {
+                        divider
+                        sourceRow(title: "Whoop", connected: whoopConnected,
+                                  isBusy: connectingProvider == "whoop_v2",
+                                  action: cloudAction("whoop_v2", connected: whoopConnected))
+                    }
                 }
                 if let connectError {
                     footnote(connectError, color: Theme.debtPink)

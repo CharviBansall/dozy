@@ -56,6 +56,19 @@ extension AppSession {
         try await exchange(identityToken: credential.identityToken, expectedUserID: userID)
     }
 
+    /// Has the user confirm with Apple before their account is deleted. That renews the
+    /// session, and returns the authorization code the server uses to revoke
+    /// Sign in with Apple for Dozy.
+    static func confirmWithAppleForDeletion() async throws -> String? {
+        guard let userID = Account.userID, !userID.isEmpty else {
+            throw Failure.signInRequired
+        }
+        let credential = try await AppleReauthorizer().requestIdentityToken(for: userID)
+        guard credential.userID == userID else { throw Failure.wrongAppleAccount }
+        try await exchange(identityToken: credential.identityToken, expectedUserID: userID)
+        return credential.authorizationCode
+    }
+
     /// True when the user dismissed Apple's sheet, which is not worth an error message.
     static func isAppleSheetCancelled(_ error: Error) -> Bool {
         let nsError = error as NSError
@@ -71,6 +84,8 @@ final class AppleReauthorizer: NSObject,
     struct Credential {
         let userID: String
         let identityToken: String
+        /// Single use and short lived. The server needs it to revoke Sign in with Apple.
+        let authorizationCode: String?
     }
 
     private var controller: ASAuthorizationController?
@@ -103,7 +118,9 @@ final class AppleReauthorizer: NSObject,
             finish(.failure(AppSession.Failure.missingIdentityToken))
             return
         }
-        finish(.success(Credential(userID: credential.user, identityToken: token)))
+        let code = credential.authorizationCode.flatMap { String(data: $0, encoding: .utf8) }
+        finish(.success(Credential(userID: credential.user, identityToken: token,
+                                   authorizationCode: code)))
     }
 
     func authorizationController(

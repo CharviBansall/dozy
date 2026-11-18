@@ -149,13 +149,18 @@ enum AppSession {
     /// Asks the server to delete this account: it disconnects any linked tracker and
     /// erases the sleep data held for it. Confirms the sign in again if the session
     /// has run out, since the server only deletes for a signed-in user.
-    static func deleteAccountOnServer() async throws {
+    static func deleteAccountOnServer(appleAuthorizationCode: String? = nil) async throws {
         if token() == nil { try await renew() }
 
         func send() async throws -> (Int, String?) {
             var request = URLRequest(url: baseURL.appendingPathComponent("api/account"))
             request.httpMethod = "DELETE"
             guard authorize(&request) else { throw Failure.signInRequired }
+            if let appleAuthorizationCode {
+                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                request.httpBody = try JSONSerialization.data(
+                    withJSONObject: ["appleAuthorizationCode": appleAuthorizationCode])
+            }
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let http = response as? HTTPURLResponse else {
                 throw URLError(.badServerResponse)

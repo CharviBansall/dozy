@@ -13,7 +13,7 @@ The same policy is published at <https://www.appdozy.com/privacy>.
 - Sleep data from **Apple Health stays on your device**. Dozy never uploads it.
 - Signing in sends a sign-in token from Apple or Google to our server, so we
   can confirm it is you. We do not keep a database of accounts.
-- If you choose to connect **Oura, Garmin or Whoop**, your sleep summaries from that
+- If you choose to connect **Oura or Garmin**, your sleep summaries from that
   tracker pass through our server and our data partner, Junction.
 - We do not sell your data, show ads, or use analytics or tracking SDKs.
 - You can delete your account in the app at any time: **You → Delete Account**.
@@ -54,10 +54,10 @@ Dozy asks you to sign in with Apple or with Google.
 
 Apple and Google each process the sign-in under their own privacy policies.
 
-## Oura, Garmin and Whoop (optional)
+## Oura and Garmin (optional)
 
-You can use Dozy with Apple Health alone. If you choose to connect an Oura,
-Garmin or Whoop account in **You → Sleep Sources**:
+You can use Dozy with Apple Health alone. If you choose to connect an Oura or
+Garmin account in **You → Sleep Sources**:
 
 - You sign in to that service through **Junction** (Junction Technologies,
   formerly Vital), a health-data provider we use to connect trackers.
@@ -88,7 +88,7 @@ on your device. Their content is not sent to us.
 ## Keeping and deleting your data
 
 - **Delete your account** in the app under You → Delete Account. This signs you
-  out, clears Dozy's data from your phone, disconnects any Oura, Garmin or Whoop
+  out, clears Dozy's data from your phone, disconnects any Oura or Garmin
   account, and tells Junction to delete the sleep data it holds for you.
   Junction disconnects trackers immediately and erases the data within about
   seven days.

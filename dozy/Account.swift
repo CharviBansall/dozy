@@ -55,8 +55,15 @@ enum Account {
     /// Deletes the account everywhere, then wipes everything Dozy stored on this phone.
     /// Throws, leaving the account untouched, if the server could not be reached.
     static func delete() async throws {
-        try await AppSession.deleteAccountOnServer()
-        if provider == "google" { await GoogleAuth.disconnect() }
+        if provider == "google" {
+            try await AppSession.deleteAccountOnServer()
+            await GoogleAuth.disconnect()
+        } else {
+            // Apple confirms it is really them, and hands over what the server needs
+            // to take Dozy off their "Sign in with Apple" list.
+            let code = try await AppSession.confirmWithAppleForDeletion()
+            try await AppSession.deleteAccountOnServer(appleAuthorizationCode: code)
+        }
         clear()
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
         UNUserNotificationCenter.current().removeAllDeliveredNotifications()
@@ -68,6 +75,10 @@ enum Account {
     // MARK: - Junction cloud sources
 
     static let cloudProviders = ["oura", "garmin", "whoop_v2"]
+
+    /// Whoop only connects once Dozy has its own WHOOP developer app set up in
+    /// Junction (WHOOP does not allow shared credentials). Off until that exists.
+    static let isWhoopAvailable = false
 
     private static func cloudKey(_ provider: String) -> String {
         "account.cloud.\(provider)"
