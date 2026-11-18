@@ -64,6 +64,9 @@ struct TodayActionCard: View {
         if plan.extra >= 60 {
             return "That leaves room for \(SleepViewModel.duration(plan.extra)) of extra sleep before your \(clockTime(plan.wake)) wake-up, which comes straight off your debt."
         }
+        if vm.nightsInWindow == 0 {
+            return "A starting point: \(SleepViewModel.duration(vm.sleepNeed)) of sleep before your \(clockTime(plan.wake)) wake-up. Dozy adjusts it once it has seen you sleep."
+        }
         return "You're on track. This covers what you need before your \(clockTime(plan.wake)) wake-up."
     }
 

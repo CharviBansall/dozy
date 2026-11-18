@@ -130,6 +130,12 @@ struct ProgressScreen: View {
         return points.map(\.balance).reduce(0, +) / Double(points.count)
     }
 
+    /// The top of the chart, in minutes.
+    private var scaleTop: Double {
+        let peak = (bars.map(\.balance).max() ?? 0) / 60
+        return max(60, (peak / 30).rounded(.up) * 30)
+    }
+
     private var selectedBar: Bar? {
         guard let selectedDay else { return nil }
         return bars.first { $0.start <= selectedDay && selectedDay <= $0.end }
@@ -162,13 +168,15 @@ struct ProgressScreen: View {
                 BarMark(
                     x: .value("Day", bar.start, unit: range == .sixMonths ? .weekOfYear : .day),
                     // A sliver for a debt-free day, so the day still reads as recorded.
-                    y: .value("Debt (min)", max(bar.balance / 60, 0.5))
+                    y: .value("Debt (min)", max(bar.balance / 60, scaleTop * 0.015))
                 )
                 .foregroundStyle(barColor(bar, selected: selected, last: shown.last))
                 .cornerRadius(3)
             }
+            // Never less than an hour tall, so small debts don't fill the chart.
+            .chartYScale(domain: 0...scaleTop)
             .chartYAxis {
-                AxisMarks(position: .trailing) { value in
+                AxisMarks(position: .trailing, values: .automatic(desiredCount: 3)) { value in
                     AxisGridLine().foregroundStyle(Theme.line)
                     AxisValueLabel {
                         if let minutes = value.as(Double.self) {
@@ -232,7 +240,7 @@ struct ProgressScreen: View {
 
     private var weekSummary: String {
         let history = vm.debtHistory
-        guard let today = history.last else {
+        guard let today = history.last, vm.nightsInWindow > 0 else {
             return "Track a few nights and Dozy will tell you how your week went."
         }
         let outlook = vm.payoffText ?? "You’re all caught up."

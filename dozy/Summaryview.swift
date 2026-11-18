@@ -104,9 +104,14 @@ struct SummaryView: View {
                 )
 
                 VStack(alignment: .leading, spacing: 8) {
-                    legend("Debt", SleepViewModel.duration(vm.totalDebt), Theme.debtRed)
+                    // A dash, not a zero, when there is no night to measure.
+                    legend("Debt", vm.nightsInWindow == 0 ? "–" : SleepViewModel.duration(vm.totalDebt),
+                           Theme.debtRed)
                     legend("Nap", SleepViewModel.duration(vm.napLength), Theme.cyan)
-                    legend("Deep + REM", "\(vm.restorativeDisplay)%", Theme.violet)
+                    legend("Deep + REM",
+                           (vm.latestNight.map { $0.deep + $0.rem > 0 } ?? false)
+                               ? "\(vm.restorativeDisplay)%" : "–",
+                           Theme.violet)
                 }
                 Spacer(minLength: 0)
             }

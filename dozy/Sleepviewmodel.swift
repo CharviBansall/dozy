@@ -252,7 +252,9 @@ final class SleepViewModel: ObservableObject {
                                 analyzer: SleepAnalyzer) -> [DebtPoint] {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: .now)
-        guard let first = nights.map(\.day).min() else { return [] }
+        // Start at the first real night. Naps alone say nothing about debt.
+        guard let first = nights.filter({ $0.totalAsleep >= 2 * 3600 }).map(\.day).min()
+        else { return [] }
 
         var points: [DebtPoint] = []
         for offset in (0..<historyDays).reversed() {
