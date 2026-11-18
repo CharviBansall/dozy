@@ -257,7 +257,8 @@ struct ProfileView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .disabled(action == nil || isBusy)
+        // Not `.disabled`: that greys out a row that is simply already connected.
+        .allowsHitTesting(action != nil && !isBusy)
     }
 
     // MARK: - Account actions
