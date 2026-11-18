@@ -30,15 +30,40 @@ final class PhoneConnector: NSObject, ObservableObject {
 
     func activate() { /* touching shared triggers init */ }
 
-    /// Push the latest nap/debt to the watch. Uses application context, which
-    /// queues the most recent value and delivers it whenever the watch wakes —
-    /// works in the simulator and even when the phone app is backgrounded.
-    func push(napMinutes: Int, debtMinutes: Int) {
-        guard WCSession.default.activationState == .activated else { return }
-        try? WCSession.default.updateApplicationContext([
+    /// Push today's plan to the watch. Uses application context, which queues the
+    /// most recent value and delivers it whenever the watch wakes, even when the
+    /// phone app is in the background.
+    func push(from vm: SleepViewModel) {
+        guard WCSession.isSupported(),
+              WCSession.default.activationState == .activated else { return }
+        try? WCSession.default.updateApplicationContext(Self.payload(from: vm))
+    }
+
+    /// What the watch shows: the nap length and debt it always had, plus today's one thing.
+    static func payload(from vm: SleepViewModel?) -> [String: Any] {
+        let napSeconds = vm?.napLength ?? 0
+        let napMinutes = napSeconds > 0 ? Int((napSeconds / 60).rounded()) : 20
+        var payload: [String: Any] = [
             "napMinutes": napMinutes,
-            "debtMinutes": debtMinutes
-        ])
+            "debtMinutes": Int(((vm?.totalDebt ?? 0) / 60).rounded()),
+            "hasPlan": false,
+        ]
+        guard let vm, vm.nightsInWindow > 0, let action = vm.todayAction else { return payload }
+
+        payload["hasPlan"] = true
+        switch action {
+        case .nap(let length, let earliest, let latest):
+            payload["action"] = "nap"
+            payload["napMinutes"] = Int((length / 60).rounded())
+            payload["headline"] = "Take a \(SleepViewModel.duration(length)) nap"
+            payload["detail"] = "Between \(SleepViewModel.clockText(earliest)) and \(SleepViewModel.clockText(latest))"
+        case .bedtime(let plan):
+            payload["action"] = "bedtime"
+            payload["headline"] = "Be in bed by \(SleepViewModel.clockText(plan.bedtime))"
+            payload["detail"] = vm.payoffText?.replacingOccurrences(of: " if you stick to the plan.", with: "")
+                ?? "You’re all caught up"
+        }
+        return payload
     }
 }
 
@@ -61,11 +86,7 @@ extension PhoneConnector: WCSessionDelegate {
             if let vm = self.viewModel, vm.napLength == 0 {
                 await vm.load()
             }
-            let napSeconds = self.viewModel?.napLength ?? 0
-            let debtSeconds = self.viewModel?.totalDebt ?? 0
-            let napMin = napSeconds > 0 ? Int((napSeconds / 60).rounded()) : 20
-            let debtMin = Int((debtSeconds / 60).rounded())
-            replyHandler(["napMinutes": napMin, "debtMinutes": debtMin])
+            replyHandler(Self.payload(from: self.viewModel))
         }
     }
 }

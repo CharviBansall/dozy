@@ -1,54 +1,36 @@
 //
 //  Theme.swift
-//  dozy
+//  DozyWatch
 //
-//  Created by Charvi Bansal on 6/12/26.
+//  The watch follows the phone: system type, rounded numbers, Dozy's palette.
 //
 
 import SwiftUI
 
-/// Centralized typography + color for Dozy's full editorial look.
-/// Instrument Serif is used throughout; its italic carries accent words.
-///
-/// NOTE: the names below must match the PostScript names printed by the
-/// font-dump snippet. Adjust `serifRegular` / `serifItalic` if your console
-/// shows different strings.
 enum Theme {
 
-    private enum FontName {
-        static let serifRegular = "InstrumentSerif-Regular"
-        static let serifItalic  = "InstrumentSerif-Italic"
+    /// Titles and labels.
+    static func body(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        .system(size: size, weight: weight)
     }
 
-    /// The one type style for everything: Instrument Serif.
-    /// `italic: true` uses the italic cut (for accent words).
+    /// Large titles. Kept under its old name for existing call sites.
     static func serif(_ size: CGFloat, italic: Bool = false) -> Font {
-        let name = italic ? FontName.serifItalic : FontName.serifRegular
-        if UIFont(name: name, size: size) != nil {
-            return .custom(name, size: size)
-        }
-        // Fallback before the font is bundled, so the app still renders.
-        return .system(size: size, weight: .regular, design: .serif).italic(italic)
+        .system(size: size, weight: .bold)
     }
 
-    /// Alias kept so existing call sites that say `display` still work.
-    static func display(_ size: CGFloat, italic: Bool = false) -> Font {
-        serif(size, italic: italic)
+    /// Figures: times and durations.
+    static func number(_ size: CGFloat, weight: Font.Weight = .semibold) -> Font {
+        .system(size: size, weight: weight, design: .rounded)
     }
 
-    /// Body alias — same serif, since we're going full editorial.
-    static func body(_ size: CGFloat) -> Font {
-        serif(size)
-    }
-
-    // MARK: - Palette
-    static let background = Color(red: 0.07, green: 0.07, blue: 0.09)
-    static let accentBlue = Color(red: 0.10, green: 0.50, blue: 1.0)
+    // MARK: - Palette (the phone's dark-mode values)
+    static let background = Color.black
+    static let card       = Color(red: 0.125, green: 0.125, blue: 0.15)
+    static let text       = Color(red: 0.96, green: 0.96, blue: 0.98)
+    static let secondary  = Color(red: 0.60, green: 0.60, blue: 0.65)
     static let cyan       = Color(red: 0.30, green: 0.80, blue: 0.85)
-    static let orange     = Color(red: 0.95, green: 0.60, blue: 0.10)
-    static let debtPink   = Color(red: 0.90, green: 0.25, blue: 0.45)
-}
-
-private extension Font {
-    func italic(_ on: Bool) -> Font { on ? self.italic() : self }
+    static let accentBlue = Color(red: 0.25, green: 0.58, blue: 1.00)
+    static let violet     = Color(red: 0.62, green: 0.53, blue: 0.98)
+    static let debtPink   = Color(red: 0.95, green: 0.35, blue: 0.55)
 }

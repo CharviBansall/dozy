@@ -25,6 +25,9 @@ final class SleepViewModel: ObservableObject {
     @Published var ledger: [DebtDay] = []
     /// The single thing to do today: a nap, or tonight's bedtime.
     @Published var todayAction: TodayAction? = nil
+    /// Extra sleep to aim for tonight, on top of the usual need: the share of the
+    /// debt one night can pay back (up to 60 minutes).
+    @Published var extraTonight: TimeInterval = 0
     /// The morning the debt is cleared if the plan is followed. Nil when debt-free.
     @Published var payoffDate: Date? = nil
     /// Average deep and REM sleep over the previous nights (up to 14), not counting
@@ -35,6 +38,11 @@ final class SleepViewModel: ObservableObject {
     @Published var usualWakeMinutes: Int? = nil
     /// Average distance of the last week's wake-ups from the usual one, in minutes.
     @Published var wakeSpreadMinutes: Int? = nil
+    /// The debt balance at the end of each day, oldest first, for up to 180 days.
+    /// Each day is the close of its own 14-day ledger, so the last entry equals `totalDebt`.
+    @Published var debtHistory: [DebtPoint] = []
+    /// Deep and REM for the most recent nights that have stages, oldest first.
+    @Published var stageHistory: [StagePoint] = []
     /// Set after a nap finishes, so the Nap screen can show what it paid back.
     @Published var napPayback: NapPayback? = nil
 
@@ -43,6 +51,21 @@ final class SleepViewModel: ObservableObject {
         let after: TimeInterval
         var paidBack: TimeInterval { max(0, before - after) }
     }
+
+    struct DebtPoint: Identifiable {
+        var id: Date { day }
+        let day: Date
+        let balance: TimeInterval
+    }
+
+    struct StagePoint: Identifiable {
+        var id: Date { day }
+        let day: Date
+        let deep: TimeInterval
+        let rem: TimeInterval
+    }
+
+    static let historyDays = 180
 
     enum LastNightResult {
         case paidBack(TimeInterval)
@@ -68,6 +91,7 @@ final class SleepViewModel: ObservableObject {
     private let store = SleepHealthStore.shared
     private let analyzer = SleepAnalyzer()
     private var loadedNights: [NightSleep] = []
+    private var allNights: [NightSleep] = []
     private static let napSkippedDayKey = "action.napSkippedDay"
 
     /// Call once on launch / when the Summary appears / after a cloud connect.
@@ -79,12 +103,16 @@ final class SleepViewModel: ObservableObject {
         do {
             try await store.requestAuthorization()
 
-            // Pull 30 days so the need-baseline has enough history.
+            // The plan is built on the last 30 days. Older nights are only read so
+            // Progress can show how the debt has moved over time.
             let end = Date()
             let start = Calendar.current.date(byAdding: .day, value: -30, to: end)!
-            let samples = try await store.fetchSleepSamples(start: start, end: end)
+            let historyStart = Calendar.current.date(byAdding: .day, value: -Self.historyDays, to: end)!
+            let samples = try await store.fetchSleepSamples(start: historyStart, end: end)
 
-            var nights = analyzer.nights(from: samples)
+            var allNights = analyzer.nights(from: samples)
+            let recentCutoff = Calendar.current.startOfDay(for: start)
+            var nights = allNights.filter { $0.day >= recentCutoff }
 
             // Merge Junction cloud sleep (Oura / Garmin / Whoop) for days
             // HealthKit doesn't already cover. HealthKit wins on the same day.
@@ -96,6 +124,7 @@ final class SleepViewModel: ObservableObject {
                         endDate: end
                     )
                     nights = Self.mergeNights(healthKit: nights, junction: cloud)
+                    allNights = Self.mergeNights(healthKit: allNights, junction: cloud)
                 } catch {
                     // Cloud is additive — don't fail the whole load if Junction blips.
                     print("[Dozy] Junction sleep fetch failed: \(error.localizedDescription)")
@@ -123,9 +152,17 @@ final class SleepViewModel: ObservableObject {
             self.totalDebt = total
             self.ledger = ledger
             self.loadedNights = nights
+            self.allNights = allNights
+            self.debtHistory = Self.history(of: allNights, need: need, analyzer: analyzer)
+            self.stageHistory = nights
+                .filter { $0.totalAsleep >= 2 * 3600 && $0.deep + $0.rem > 0 }
+                .sorted { $0.day < $1.day }
+                .suffix(7)
+                .map { StagePoint(day: $0.day, deep: $0.deep, rem: $0.rem) }
             self.usualWakeMinutes = analyzer.typicalWakeMinutes(nights: nights)
             let plan = analyzer.bedtimePlan(nights: nights, need: need, totalDebt: total)
             self.payoffDate = analyzer.payoffDate(totalDebt: total, firstWake: plan.wake)
+            self.extraTonight = plan.extra
             self.wakeSpreadMinutes = analyzer.wakeSpreadMinutes(nights: nights)
             self.todayAction = analyzer.todayAction(
                 nights: nights, need: need, totalDebt: total,
@@ -151,9 +188,69 @@ final class SleepViewModel: ObservableObject {
             self.napEarliest = nap.earliest
             self.napLatest = nap.latest
             self.lastUpdated = Date()
+            // Keep the watch on the same plan as the phone.
+            PhoneConnector.shared.push(from: self)
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    // MARK: - History and export
+
+    /// The closing debt for every day since the first recorded night.
+    private static func history(of nights: [NightSleep], need: TimeInterval,
+                                analyzer: SleepAnalyzer) -> [DebtPoint] {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+        guard let first = nights.map(\.day).min() else { return [] }
+
+        var points: [DebtPoint] = []
+        for offset in (0..<historyDays).reversed() {
+            guard let day = calendar.date(byAdding: .day, value: -offset, to: today),
+                  day >= first else { continue }
+            let balance = analyzer.debtLedger(nights: nights, need: need, windowDays: 14, now: day)
+                .last?.balance ?? 0
+            points.append(DebtPoint(day: day, balance: balance))
+        }
+        return points
+    }
+
+    /// Everything Dozy worked out, one row per day, as CSV text.
+    func exportCSV() -> String {
+        let f = DateFormatter()
+        f.calendar = Calendar(identifier: .gregorian)
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd"
+
+        var nightByDay: [Date: NightSleep] = [:]
+        var napByDay: [Date: TimeInterval] = [:]
+        for n in allNights {
+            if n.totalAsleep >= 2 * 3600 {
+                if let existing = nightByDay[n.day], existing.totalAsleep >= n.totalAsleep { continue }
+                nightByDay[n.day] = n
+            } else {
+                napByDay[n.day, default: 0] += n.totalAsleep
+            }
+        }
+        func minutes(_ seconds: TimeInterval?) -> String {
+            guard let seconds else { return "" }
+            return String(Int((seconds / 60).rounded()))
+        }
+
+        var rows = ["date,asleep_min,deep_min,rem_min,nap_min,sleep_need_min,debt_min"]
+        for point in debtHistory {
+            let night = nightByDay[point.day]
+            rows.append([
+                f.string(from: point.day),
+                minutes(night?.totalAsleep),
+                minutes(night?.deep),
+                minutes(night?.rem),
+                minutes(napByDay[point.day]),
+                minutes(sleepNeed),
+                minutes(point.balance),
+            ].joined(separator: ","))
+        }
+        return rows.joined(separator: "\n") + "\n"
     }
 
     // MARK: - Today's action and its result
@@ -172,6 +269,7 @@ final class SleepViewModel: ObservableObject {
         todayAction = analyzer.todayAction(
             nights: loadedNights, need: sleepNeed, totalDebt: totalDebt, napSkipped: true
         )
+        PhoneConnector.shared.push(from: self)
     }
 
     private static var napSkippedToday: Bool {

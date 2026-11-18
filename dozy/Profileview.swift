@@ -11,132 +11,135 @@ import UserNotifications
 struct ProfileView: View {
     @EnvironmentObject private var subscriptions: SubscriptionManager
     @EnvironmentObject private var sleepVM: SleepViewModel
+    @AppStorage("hasOnboarded") private var hasOnboarded = false
     @State private var notificationsEnabled = false
     @State private var morningSummaryOn = MorningBrief.isEnabled
-    @State private var healthConnected = true   // app reads HealthKit by design
+    @State private var wakeTime = ProfileView.time(minutes: PlanPreferences.wakeMinutes ?? 7 * 60)
     @State private var ouraConnected = Account.isCloudSourceConnected("oura")
     @State private var garminConnected = Account.isCloudSourceConnected("garmin")
+    @State private var whoopConnected = Account.isCloudSourceConnected("whoop_v2")
     @State private var cloudNeedsSignIn = AppSession.needsSignIn
     @State private var connectingProvider: String? = nil
     @State private var connectError: String? = nil
     @State private var isRestoring = false
     @State private var linkSession: JunctionLinkSession? = nil
-
-    private var dateString: String {
-        let f = DateFormatter(); f.dateFormat = "EEEE, MMMM d"
-        return f.string(from: .now)
-    }
+    @State private var confirmingSignOut = false
+    @State private var confirmingDelete = false
+    @State private var isDeleting = false
+    @State private var accountError: String? = nil
+    @State private var exportFile: URL? = nil
 
     private let accent = Theme.cyan
+    private static let privacyURL = URL(string: "https://www.appdozy.com/privacy")!
+
+    private static func time(minutes: Int) -> Date {
+        Calendar.current.date(bySettingHour: minutes / 60, minute: minutes % 60, second: 0, of: .now) ?? .now
+    }
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                header(title: "You", date: dateString)
+            VStack(alignment: .leading, spacing: 0) {
+                header(title: "You", date: "Account")
+                    .padding(.bottom, 16)
 
                 accountCard
 
-                subscriptionCard
-
-                // Notifications
-                Text("Notifications")
-                    .font(Theme.serif(20))
-                    .foregroundStyle(Theme.text)
-
-                Toggle(isOn: $notificationsEnabled) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Nap alarms")
-                            .font(Theme.serif(16))
-                            .foregroundStyle(Theme.text)
-                        Text("Wake you when a nap is complete.")
-                            .font(Theme.body(13))
-                            .foregroundStyle(Theme.secondary)
-                    }
-                }
-                .tint(accent)
-                .padding(18)
-                .background(Theme.card)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-                .onChange(of: notificationsEnabled) { _, newValue in
-                    if newValue { requestNotifications() }
-                    else { openSettingsHint() }
+                if !SubscriptionManager.isFreeLaunch {
+                    subscriptionCard.padding(.top, 24)
                 }
 
-                Toggle(isOn: $morningSummaryOn) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Morning summary")
-                            .font(Theme.serif(16))
-                            .foregroundStyle(Theme.text)
-                        Text("What last night did to your debt, and today's one thing.")
-                            .font(Theme.body(13))
-                            .foregroundStyle(Theme.secondary)
-                    }
+                sectionTitle("Sleep Sources")
+                group {
+                    sourceRow(title: "Apple Health", connected: true, isBusy: false, action: nil)
+                    divider
+                    sourceRow(title: "Oura", connected: ouraConnected,
+                              isBusy: connectingProvider == "oura",
+                              action: cloudAction("oura", connected: ouraConnected))
+                    divider
+                    sourceRow(title: "Garmin", connected: garminConnected,
+                              isBusy: connectingProvider == "garmin",
+                              action: cloudAction("garmin", connected: garminConnected))
+                    divider
+                    sourceRow(title: "Whoop", connected: whoopConnected,
+                              isBusy: connectingProvider == "whoop_v2",
+                              action: cloudAction("whoop_v2", connected: whoopConnected))
                 }
-                .tint(accent)
-                .padding(18)
-                .background(Theme.card)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-                .onChange(of: morningSummaryOn) { _, newValue in
-                    MorningBrief.isEnabled = newValue
-                    if newValue {
-                        UNUserNotificationCenter.current()
-                            .requestAuthorization(options: [.alert, .sound]) { _, _ in }
-                    }
-                }
-
-                // Data sources
-                Text("Data")
-                    .font(Theme.serif(20))
-                    .foregroundStyle(Theme.text)
-
-                VStack(spacing: 10) {
-                    sourceRow(
-                        icon: "heart.fill",
-                        iconColor: Theme.iconNeutral,
-                        title: "Apple Health",
-                        subtitle: healthConnected
-                            ? "Connected — reading your sleep"
-                            : "Not connected",
-                        connected: healthConnected,
-                        isBusy: false,
-                        action: nil
-                    )
-
-                    sourceRow(
-                        icon: "circle.hexagongrid.fill",
-                        iconColor: Theme.iconNeutral,
-                        title: "Oura",
-                        subtitle: cloudSubtitle("Oura", connected: ouraConnected),
-                        connected: ouraConnected,
-                        isBusy: connectingProvider == "oura",
-                        actionLabel: ouraConnected ? "Sign in" : "Connect",
-                        action: cloudAction("oura", connected: ouraConnected)
-                    )
-
-                    sourceRow(
-                        icon: "watch.analog",
-                        iconColor: Theme.iconNeutral,
-                        title: "Garmin",
-                        subtitle: cloudSubtitle("Garmin", connected: garminConnected),
-                        connected: garminConnected,
-                        isBusy: connectingProvider == "garmin",
-                        actionLabel: garminConnected ? "Sign in" : "Connect",
-                        action: cloudAction("garmin", connected: garminConnected)
-                    )
-                }
-
                 if let connectError {
-                    Text(connectError)
-                        .font(Theme.body(12))
-                        .foregroundStyle(Theme.debtPink)
+                    footnote(connectError, color: Theme.debtPink)
+                } else {
+                    footnote("Trackers often reach Dozy through Apple Health already. Connect one here for a direct sync.")
                 }
 
-                Text("Oura and Garmin often already appear via Apple Health. Connect here if you want a direct cloud sync.")
-                    .font(Theme.body(13))
-                    .foregroundStyle(Theme.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                sectionTitle("Plan")
+                group {
+                    DatePicker("Wake Time", selection: $wakeTime, displayedComponents: .hourAndMinute)
+                        .font(Theme.body(17))
+                        .foregroundStyle(Theme.text)
+                        .tint(accent)
+                        .padding(.horizontal, 16)
+                        .frame(minHeight: 50)
+                        .onChange(of: wakeTime) { _, newValue in
+                            let c = Calendar.current.dateComponents([.hour, .minute], from: newValue)
+                            PlanPreferences.wakeMinutes = (c.hour ?? 7) * 60 + (c.minute ?? 0)
+                            Task { await sleepVM.load() }
+                        }
+                    divider
+                    toggleRow("Morning Summary", isOn: $morningSummaryOn)
+                        .onChange(of: morningSummaryOn) { _, newValue in
+                            MorningBrief.isEnabled = newValue
+                            if newValue {
+                                UNUserNotificationCenter.current()
+                                    .requestAuthorization(options: [.alert, .sound]) { _, _ in }
+                            }
+                        }
+                    divider
+                    toggleRow("Nap Alarms", isOn: $notificationsEnabled)
+                        .onChange(of: notificationsEnabled) { _, newValue in
+                            if newValue { requestNotifications() }
+                            else { openSettingsHint() }
+                        }
+                }
+                footnote("Tonight’s bedtime is worked back from your wake time.")
+
+                sectionTitle("About")
+                group {
+                    NavigationLink { HowDozyWorksView() } label: { linkRow("How Dozy Works") }
+                        .buttonStyle(.plain)
+                    divider
+                    if let exportFile {
+                        ShareLink(item: exportFile) { linkRow("Export My Data") }
+                            .buttonStyle(.plain)
+                    } else {
+                        linkRow("Export My Data").opacity(0.4)
+                    }
+                    divider
+                    Link(destination: Self.privacyURL) { linkRow("Privacy") }
+                        .buttonStyle(.plain)
+                }
+
+                sectionTitle("Account")
+                group {
+                    Button { confirmingSignOut = true } label: {
+                        actionRow("Sign Out", color: accent)
+                    }
+                    .buttonStyle(.plain)
+                    divider
+                    Button { confirmingDelete = true } label: {
+                        HStack {
+                            actionRow("Delete Account", color: Theme.debtPink)
+                            if isDeleting { ProgressView().tint(Theme.secondary).padding(.trailing, 16) }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isDeleting)
+                }
+                if let accountError {
+                    footnote(accountError, color: Theme.debtPink)
+                } else {
+                    footnote("Deleting your account disconnects your trackers and erases the sleep data Dozy’s server holds. Apple Health is not affected.")
+                }
             }
-            .padding(.horizontal, 20).padding(.top, 12)
+            .padding(.horizontal, 16).padding(.top, 12).padding(.bottom, 32)
         }
         // 1pt keeps scrolled content from sliding under the status bar.
         .padding(.top, 1)
@@ -145,94 +148,171 @@ struct ProfileView: View {
             refreshNotificationStatus()
             ouraConnected = Account.isCloudSourceConnected("oura")
             garminConnected = Account.isCloudSourceConnected("garmin")
+            whoopConnected = Account.isCloudSourceConnected("whoop_v2")
             cloudNeedsSignIn = AppSession.needsSignIn
+            exportFile = writeExport()
+        }
+        .confirmationDialog("Sign out of Dozy?", isPresented: $confirmingSignOut, titleVisibility: .visible) {
+            Button("Sign Out", role: .destructive) {
+                Account.signOut()
+                hasOnboarded = false
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Your sleep data stays in Apple Health. Sign in again to pick up where you left off.")
+        }
+        .confirmationDialog("Delete your Dozy account?", isPresented: $confirmingDelete, titleVisibility: .visible) {
+            Button("Delete Account", role: .destructive) { deleteAccount() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This disconnects your trackers, erases the sleep data on Dozy’s server and clears Dozy on this phone. It can’t be undone.")
         }
     }
 
-    // MARK: - Source row
+    // MARK: - Grouped list pieces
 
-    private func sourceRow(
-        icon: String,
-        iconColor: Color,
-        title: String,
-        subtitle: String,
-        connected: Bool,
-        isBusy: Bool,
-        actionLabel: String = "Connect",
-        action: (() -> Void)?
-    ) -> some View {
-        Button {
-            action?()
-        } label: {
-            HStack(spacing: 14) {
-                Image(systemName: icon)
-                    .font(Theme.serif(22))
-                    .foregroundStyle(iconColor)
-                    .frame(width: 28)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(Theme.serif(16))
-                        .foregroundStyle(Theme.text)
-                    Text(subtitle)
-                        .font(Theme.body(13))
-                        .foregroundStyle(Theme.secondary)
-                }
+    private func sectionTitle(_ text: String) -> some View {
+        Text(text.uppercased())
+            .font(Theme.body(13))
+            .foregroundStyle(Theme.secondary)
+            .padding(.leading, 16)
+            .padding(.top, 28)
+            .padding(.bottom, 8)
+    }
+
+    private func footnote(_ text: String, color: Color = Theme.secondary) -> some View {
+        Text(text)
+            .font(Theme.body(13))
+            .foregroundStyle(color)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+    }
+
+    private func group<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        VStack(spacing: 0) { content() }
+            .background(Theme.card)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+
+    private var divider: some View {
+        Rectangle().fill(Theme.line).frame(height: 1).padding(.leading, 16)
+    }
+
+    private func linkRow(_ title: String) -> some View {
+        HStack {
+            Text(title).font(Theme.body(17)).foregroundStyle(Theme.text)
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Theme.secondary)
+        }
+        .padding(.horizontal, 16)
+        .frame(minHeight: 50)
+        .contentShape(Rectangle())
+    }
+
+    private func actionRow(_ title: String, color: Color) -> some View {
+        HStack {
+            Text(title).font(Theme.body(17)).foregroundStyle(color)
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .frame(minHeight: 50)
+        .contentShape(Rectangle())
+    }
+
+    private func toggleRow(_ title: String, isOn: Binding<Bool>) -> some View {
+        Toggle(isOn: isOn) {
+            Text(title).font(Theme.body(17)).foregroundStyle(Theme.text)
+        }
+        .tint(accent)
+        .padding(.horizontal, 16)
+        .frame(minHeight: 50)
+    }
+
+    private func sourceRow(title: String, connected: Bool, isBusy: Bool,
+                           action: (() -> Void)?) -> some View {
+        Button { action?() } label: {
+            HStack(spacing: 6) {
+                Text(title).font(Theme.body(17)).foregroundStyle(Theme.text)
                 Spacer()
                 if isBusy {
                     ProgressView().tint(accent)
-                } else if action != nil {
-                    Text(actionLabel)
-                        .font(Theme.body(13, weight: .medium))
-                        .foregroundStyle(accent)
-                } else if connected {
+                } else if connected && action == nil {
                     Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 15))
                         .foregroundStyle(accent)
+                    Text("Connected").font(Theme.body(17)).foregroundStyle(Theme.secondary)
                 } else {
-                    Image(systemName: "circle")
-                        .foregroundStyle(Theme.secondary)
+                    Text(connected ? "Sign In Again" : "Connect")
+                        .font(Theme.body(17))
+                        .foregroundStyle(accent)
                 }
             }
-            .padding(18)
-            .background(Theme.card)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .padding(.horizontal, 16)
+            .frame(minHeight: 50)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .disabled(action == nil || isBusy)
     }
 
+    // MARK: - Account actions
+
+    private func deleteAccount() {
+        isDeleting = true
+        accountError = nil
+        Task {
+            do {
+                try await Account.delete()
+                hasOnboarded = false
+            } catch {
+                if !AppSession.isSignInCancelled(error) {
+                    accountError = "Couldn’t delete the account: \(error.localizedDescription)"
+                }
+            }
+            isDeleting = false
+        }
+    }
+
+    /// Writes the export to a temporary file so the share sheet has something to hand over.
+    private func writeExport() -> URL? {
+        guard !sleepVM.debtHistory.isEmpty else { return nil }
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("Dozy Sleep Export.csv")
+        do {
+            try sleepVM.exportCSV().write(to: url, atomically: true, encoding: .utf8)
+            return url
+        } catch {
+            return nil
+        }
+    }
+
     // MARK: - Account card
 
     private var accountCard: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 14) {
             Circle()
-                .fill(LinearGradient(colors: [accent, Color(red: 0.05, green: 0.4, blue: 0.95)],
+                .fill(LinearGradient(colors: [accent, Theme.accentBlue],
                                      startPoint: .top, endPoint: .bottom))
-                .frame(width: 56, height: 56)
+                .frame(width: 52, height: 52)
                 .overlay(
                     Text(initials)
-                        .font(Theme.serif(22))
+                        .font(Theme.body(20, weight: .semibold))
                         .foregroundStyle(.white)
                 )
             VStack(alignment: .leading, spacing: 3) {
                 Text(Account.name ?? "Welcome")
-                    .font(Theme.serif(20))
+                    .font(Theme.body(20, weight: .semibold))
                     .foregroundStyle(Theme.text)
-                if let email = Account.email {
-                    Text(email)
-                        .font(Theme.body(14))
-                        .foregroundStyle(Theme.secondary)
-                } else {
-                    Text(Account.provider == "google" ? "Signed in with Google" : "Signed in with Apple")
-                        .font(Theme.body(14))
-                        .foregroundStyle(Theme.secondary)
-                }
+                Text(Account.email
+                     ?? (Account.provider == "google" ? "Signed in with Google" : "Signed in with Apple"))
+                    .font(Theme.body(14))
+                    .foregroundStyle(Theme.secondary)
             }
             Spacer()
         }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .healthCard()
     }
 
     // MARK: - Subscription
@@ -304,11 +384,6 @@ struct ProfileView: View {
 
     // MARK: - Junction cloud connect
 
-    private func cloudSubtitle(_ name: String, connected: Bool) -> String {
-        guard connected else { return "Connect your \(name) account" }
-        return cloudNeedsSignIn ? "Sign in again to keep syncing" : "Connected — cloud sleep"
-    }
-
     /// Not connected: start the connect flow. Connected but the server wants a new session:
     /// sign in again. Otherwise the row has nothing to do.
     private func cloudAction(_ provider: String, connected: Bool) -> (() -> Void)? {
@@ -348,7 +423,7 @@ struct ProfileView: View {
 
     private func connectCloudSource(_ provider: String) {
         guard let clientUserId = Account.userID, !clientUserId.isEmpty else {
-            connectError = "Sign in with Apple again so Dozy can link this tracker."
+            connectError = "Sign in again so Dozy can link this tracker."
             return
         }
 
@@ -366,10 +441,12 @@ struct ProfileView: View {
                         linkSession = nil
                         switch result {
                         case .success(let connectedProvider):
-                            let slug = connectedProvider ?? provider
+                            var slug = connectedProvider ?? provider
+                            if slug == "whoop" { slug = "whoop_v2" }
                             Account.setCloudSourceConnected(slug, true)
                             if slug == "oura" { ouraConnected = true }
                             if slug == "garmin" { garminConnected = true }
+                            if slug == "whoop_v2" { whoopConnected = true }
                             Task { await sleepVM.load() }
                         case .failure(let error):
                             if (error as NSError).code == ASWebAuthenticationSessionError.canceledLogin.rawValue {

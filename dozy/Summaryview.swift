@@ -126,7 +126,8 @@ struct SummaryView: View {
     }
 }
 
-/// Sleep debt as a pinned card: the figure, what it means, and the 14-day balance.
+/// Sleep debt as a pinned card. The headline is what it asks of tonight (the extra
+/// sleep to aim for), with the two-week total and the 14-day balance as context.
 struct DebtCard: View {
     @EnvironmentObject var vm: SleepViewModel
     var time: String = ""
@@ -141,7 +142,7 @@ struct DebtCard: View {
     /// Shown in place of a figure when a number would mislead.
     private var statusWord: String? {
         if vm.nightsInWindow == 0 { return "No sleep data yet" }
-        if vm.totalDebt < 60 { return "Caught up" }
+        if vm.extraTonight < 60 { return "Caught up" }
         return nil
     }
 
@@ -150,13 +151,15 @@ struct DebtCard: View {
         let nights = vm.nightsInWindow
         if nights == 0 { return "Wear your watch or tracker to bed tonight and Dozy will work out what you owe." }
         if nights < 3 { return "Based on only \(nights) night\(nights == 1 ? "" : "s") so far, so treat this as a first guess." }
-        if vm.totalDebt < 60 { return "No sleep debt. You need about \(need) a night." }
-        return vm.payoffText ?? "Owed against the \(need) a night you need."
+        if vm.extraTonight < 60 { return "No extra sleep needed tonight. Just your usual \(need)." }
+        let total = "On top of your usual \(need). You owe \(SleepViewModel.duration(vm.totalDebt)) in total."
+        if let payoff = vm.payoffText { return total + " " + payoff }
+        return total
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            CardHeader(icon: "moon.fill", title: "Sleep Debt", color: Theme.debtPink, trailing: time)
+            CardHeader(icon: "moon.fill", title: "Extra Sleep Tonight", color: Theme.debtPink, trailing: time)
 
             HStack(alignment: .bottom, spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -165,7 +168,7 @@ struct DebtCard: View {
                             .font(Theme.number(24))
                             .foregroundStyle(Theme.text)
                     } else {
-                        DurationText(seconds: vm.totalDebt)
+                        DurationText(seconds: vm.extraTonight)
                     }
                     Text(note)
                         .font(Theme.body(13))

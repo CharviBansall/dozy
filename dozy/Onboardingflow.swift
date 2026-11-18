@@ -450,7 +450,7 @@ struct OnboardingFlow: View {
             .padding(.top, 36)
             Spacer()
             SignUpWithAppleButton {
-                hasOnboarded = true   // signing in finishes onboarding; the paywall is next
+                hasOnboarded = true   // signing in finishes onboarding
             }
             footnote("Dozy only sees your name and email if you choose to share them.")
         }

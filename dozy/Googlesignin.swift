@@ -84,6 +84,14 @@ enum GoogleAuth {
         #endif
     }
 
+    /// Withdraws Dozy's access to the Google account, for account deletion.
+    static func disconnect() async {
+        #if canImport(GoogleSignIn)
+        _ = try? await GIDSignIn.sharedInstance.restorePreviousSignIn()
+        try? await GIDSignIn.sharedInstance.disconnect()
+        #endif
+    }
+
     /// True when the user backed out of Google's screen, which is not worth an error message.
     static func isCancelled(_ error: Error) -> Bool {
         #if canImport(GoogleSignIn)

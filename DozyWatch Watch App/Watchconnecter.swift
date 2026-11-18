@@ -18,6 +18,14 @@ final class WatchConnector: NSObject, ObservableObject {
 
     @Published var napMinutes: Int = 20      // sensible default until phone replies
     @Published var debtMinutes: Int = 0
+    /// "nap" or "bedtime": today's one thing, as the phone worked it out.
+    @Published var action = "nap"
+    /// "Be in bed by 10:45 PM" or "Take a 20 min nap".
+    @Published var headline = ""
+    /// The line under the headline: the nap window, or when the debt is cleared.
+    @Published var detail = ""
+    /// False until the phone has sleep data to plan from.
+    @Published var hasPlan = false
     @Published var reachable = false
     @Published var hasLoaded = false          // true once phone replies or we time out
 
@@ -27,6 +35,16 @@ final class WatchConnector: NSObject, ObservableObject {
             WCSession.default.delegate = self
             WCSession.default.activate()
         }
+    }
+
+    /// Takes whatever the phone sent. Older phone builds only send the first two.
+    private func apply(_ payload: [String: Any]) {
+        if let nap = payload["napMinutes"] as? Int { napMinutes = nap }
+        if let debt = payload["debtMinutes"] as? Int { debtMinutes = debt }
+        if let action = payload["action"] as? String { self.action = action }
+        if let headline = payload["headline"] as? String { self.headline = headline }
+        if let detail = payload["detail"] as? String { self.detail = detail }
+        if let hasPlan = payload["hasPlan"] as? Bool { self.hasPlan = hasPlan }
     }
 
     /// Ask the phone for the latest recommendation.
@@ -43,8 +61,7 @@ final class WatchConnector: NSObject, ObservableObject {
         }
         WCSession.default.sendMessage(["request": "nap"], replyHandler: { reply in
             Task { @MainActor in
-                if let nap = reply["napMinutes"] as? Int { self.napMinutes = nap }
-                if let debt = reply["debtMinutes"] as? Int { self.debtMinutes = debt }
+                self.apply(reply)
                 self.hasLoaded = true
             }
         }, errorHandler: { _ in
@@ -61,8 +78,7 @@ extension WatchConnector: WCSessionDelegate {
             self.reachable = (session.activationState == .activated && session.isReachable)
             // Read any context the phone already pushed before we were listening.
             let ctx = session.receivedApplicationContext
-            if let nap = ctx["napMinutes"] as? Int { self.napMinutes = nap }
-            if let debt = ctx["debtMinutes"] as? Int { self.debtMinutes = debt }
+            self.apply(ctx)
             if !ctx.isEmpty { self.hasLoaded = true }
             self.refresh()
         }
@@ -80,8 +96,7 @@ extension WatchConnector: WCSessionDelegate {
     nonisolated func session(_ session: WCSession,
                              didReceiveApplicationContext applicationContext: [String : Any]) {
         Task { @MainActor in
-            if let nap = applicationContext["napMinutes"] as? Int { self.napMinutes = nap }
-            if let debt = applicationContext["debtMinutes"] as? Int { self.debtMinutes = debt }
+            self.apply(applicationContext)
             self.hasLoaded = true
         }
     }

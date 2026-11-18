@@ -146,6 +146,34 @@ enum AppSession {
         return userId
     }
 
+    /// Asks the server to delete this account: it disconnects any linked tracker and
+    /// erases the sleep data held for it. Confirms the sign in again if the session
+    /// has run out, since the server only deletes for a signed-in user.
+    static func deleteAccountOnServer() async throws {
+        if token() == nil { try await renew() }
+
+        func send() async throws -> (Int, String?) {
+            var request = URLRequest(url: baseURL.appendingPathComponent("api/account"))
+            request.httpMethod = "DELETE"
+            guard authorize(&request) else { throw Failure.signInRequired }
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse else {
+                throw URLError(.badServerResponse)
+            }
+            struct Body: Decodable { let error: String? }
+            return (http.statusCode, (try? JSONDecoder().decode(Body.self, from: data))?.error)
+        }
+
+        var (status, message) = try await send()
+        if status == 401 {
+            try await renew()
+            (status, message) = try await send()
+        }
+        guard status == 200 else {
+            throw Failure.server(message ?? "Couldn’t delete the account (\(status)). Please try again.")
+        }
+    }
+
     /// Forgets the stored session but keeps `needsSignIn` as it is.
     static func discard() {
         SessionKeychain.delete()

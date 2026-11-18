@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import UserNotifications
 
 /// Persists the small amount of account info Apple gives us at sign-in.
 /// Apple only returns name/email on the FIRST authorization, so we save it then.
@@ -43,6 +44,25 @@ enum Account {
             d.removeObject(forKey: cloudKey(provider))
         }
         AppSession.clear()
+    }
+
+    /// Signs out on this phone. A linked tracker stays linked on the server.
+    static func signOut() {
+        clear()
+        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+    }
+
+    /// Deletes the account everywhere, then wipes everything Dozy stored on this phone.
+    /// Throws, leaving the account untouched, if the server could not be reached.
+    static func delete() async throws {
+        try await AppSession.deleteAccountOnServer()
+        if provider == "google" { await GoogleAuth.disconnect() }
+        clear()
+        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+        UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+        if let bundleID = Bundle.main.bundleIdentifier {
+            UserDefaults.standard.removePersistentDomain(forName: bundleID)
+        }
     }
 
     // MARK: - Junction cloud sources

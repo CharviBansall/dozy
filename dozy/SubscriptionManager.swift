@@ -17,6 +17,10 @@ final class SubscriptionManager: ObservableObject {
     static let yearlyProductID = "dozy_premium_yearly"
     static let productIDs: Set<String> = [monthlyProductID, yearlyProductID]
 
+    /// Free launch: everyone gets the whole app and the paywall never shows.
+    /// Set to `false` to sell the plans again; nothing else needs to change.
+    static let isFreeLaunch = true
+
     @Published private(set) var monthly: Product?
     /// Nil until the yearly product exists in App Store Connect; the paywall then shows monthly only.
     @Published private(set) var yearly: Product?
@@ -62,6 +66,11 @@ final class SubscriptionManager: ObservableObject {
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
+
+        if Self.isFreeLaunch {
+            isEntitled = true
+            return
+        }
 
         await loadProducts()
         await refreshEntitlements()
@@ -150,6 +159,11 @@ final class SubscriptionManager: ObservableObject {
     // MARK: - Entitlements
 
     func refreshEntitlements() async {
+        if Self.isFreeLaunch {
+            isEntitled = true
+            isInTrial = false
+            return
+        }
         var entitled = false
         var trial = false
         var expiry: Date?

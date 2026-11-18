@@ -48,7 +48,7 @@ struct DozyApp: App {
                         TabView {
                             SummaryView()
                                 .tabItem { Label("Today", systemImage: "sun.max.fill") }
-                            SleepDebtView(title: "Progress", showsDetailRows: true)
+                            ProgressScreen()
                                 .tabItem { Label("Progress", systemImage: "chart.bar.fill") }
                             ProfileView()
                                 .tabItem { Label("You", systemImage: "person.fill") }
@@ -76,9 +76,6 @@ struct DozyApp: App {
                 PhoneConnector.shared.viewModel = vm
                 Task {
                     await vm.load()
-                    let napMin = Int((vm.napLength / 60).rounded())
-                    let debtMin = Int((vm.totalDebt / 60).rounded())
-                    PhoneConnector.shared.push(napMinutes: napMin, debtMinutes: debtMin)
                     // Health access exists now, so the sleep observer can start.
                     MorningBrief.startObserving()
                 }
